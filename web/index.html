@@ -1,0 +1,1594 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Showroom Manager — Catalog & Billing</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['"Plus Jakarta Sans"', 'sans-serif'] },
+                    colors: {
+                        navy: { 900: '#0F172A', 800: '#1E293B', 700: '#334155' },
+                        gold: { 500: '#D97706', 400: '#F59E0B', 300: '#FCD34D' },
+                        price: { green: '#16A34A', light: '#DCFCE7' },
+                        danger: { red: '#DC2626', light: '#FEE2E2' },
+                        warn: { yellow: '#D97706', light: '#FEF3C7' }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @media print {
+            body * { visibility: hidden; }
+            #printable-invoice, #printable-invoice * { visibility: visible; }
+            #printable-invoice { position: absolute; left: 0; top: 0; width: 100%; }
+            .no-print { display: none !important; }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 font-sans antialiased min-h-screen pb-24">
+
+    <!-- TOP APP BAR -->
+    <header class="bg-navy-900 text-white sticky top-0 z-40 shadow-md">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gold-400 text-navy-900 flex items-center justify-center font-black text-xl shadow">
+                    🏪
+                </div>
+                <div>
+                    <div class="text-[10px] tracking-wider uppercase font-bold text-gold-400">Selected Company</div>
+                    <select id="header-company-select" onchange="setActiveCompany(this.value)" class="bg-navy-800 text-white font-bold text-sm border border-slate-700 rounded-lg px-2.5 py-1 focus:ring-2 focus:ring-gold-400 focus:outline-none cursor-pointer max-w-[170px] sm:max-w-xs shadow-inner">
+                        <!-- Populated by JavaScript -->
+                    </select>
+                </div>
+            </div>
+
+            <!-- Top Actions: Quick Calculator & Quote Badge -->
+            <div class="flex items-center space-x-2">
+                <!-- Quick Counter Calculator Button -->
+                <button onclick="openQuickCalc()" class="px-3.5 py-1.5 bg-gold-400 hover:bg-gold-500 text-navy-900 rounded-xl text-xs font-bold flex items-center space-x-1 shadow transition">
+                    <span>⚡</span>
+                    <span class="font-bold">Calc</span>
+                </button>
+
+                <!-- Active Quote Cart -->
+                <button onclick="openQuotationModal()" class="relative p-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-sm transition">
+                    🧾
+                    <span id="quote-badge" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">0</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN CONTAINER -->
+    <main class="max-w-6xl mx-auto px-4 py-5">
+
+        <!-- TAB 1: DASHBOARD -->
+        <section id="tab-dashboard" class="space-y-5">
+            <!-- Low Stock Alert Banner -->
+            <div id="low-stock-banner" class="hidden cursor-pointer rounded-2xl p-4 border transition hover:shadow-md">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-3">
+                        <div id="low-stock-badge-icon" class="w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold text-white shadow">⚠️</div>
+                        <div>
+                            <div id="low-stock-title" class="text-sm font-bold"></div>
+                            <div class="text-xs text-slate-600">सप्लायर से तुरंत नया माल मंगाने के लिए यहाँ क्लिक करें</div>
+                        </div>
+                    </div>
+                    <span class="text-xs font-bold px-2.5 py-1 bg-white rounded-lg shadow-sm">View ➔</span>
+                </div>
+            </div>
+
+            <!-- Stats Overview Cards -->
+            <!-- Stats Overview Cards (Customer Safe - No Margin display) -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+                    <div class="text-xs text-slate-500 font-semibold uppercase">Total Products</div>
+                    <div id="stat-total-products" class="text-2xl font-black text-navy-900 mt-1">0</div>
+                </div>
+                <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+                    <div class="text-xs text-slate-500 font-semibold uppercase">Total Catalog Value</div>
+                    <div id="stat-catalog-value" class="text-2xl font-black text-price-green mt-1">₹0</div>
+                </div>
+                <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+                    <div class="text-xs text-slate-500 font-semibold uppercase">Low Stock Alert</div>
+                    <div id="stat-low-stock" class="text-2xl font-black text-amber-600 mt-1">0</div>
+                </div>
+            </div>
+
+            <!-- Quick Action Tiles -->
+            <div class="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-3">
+                <button onclick="openAddProductModal()" class="bg-white hover:bg-slate-100 p-3 rounded-2xl border border-slate-200 flex flex-col items-center justify-center text-center shadow-sm">
+                    <span class="text-2xl mb-1">➕</span>
+                    <span class="text-xs font-bold">Add Item</span>
+                </button>
+                <button onclick="openQuickCalc()" class="bg-white hover:bg-slate-100 p-3 rounded-2xl border border-slate-200 flex flex-col items-center justify-center text-center shadow-sm">
+                    <span class="text-2xl mb-1">⚡</span>
+                    <span class="text-xs font-bold">Counter Calc</span>
+                </button>
+                <button onclick="openQuotationModal()" class="bg-white hover:bg-slate-100 p-3 rounded-2xl border border-slate-200 flex flex-col items-center justify-center text-center shadow-sm">
+                    <span class="text-2xl mb-1">🧾</span>
+                    <span class="text-xs font-bold">Bill / Quote</span>
+                </button>
+                <button onclick="filterStock('LOW_STOCK'); switchTab('products');" class="bg-white hover:bg-slate-100 p-3 rounded-2xl border border-slate-200 flex flex-col items-center justify-center text-center shadow-sm">
+                    <span class="text-2xl mb-1">⚠️</span>
+                    <span class="text-xs font-bold">Low Stock</span>
+                </button>
+                <button onclick="switchTab('products')" class="bg-white hover:bg-slate-100 p-3 rounded-2xl border border-slate-200 flex flex-col items-center justify-center text-center shadow-sm">
+                    <span class="text-2xl mb-1">📦</span>
+                    <span class="text-xs font-bold">All Products</span>
+                </button>
+                <button onclick="exportCSV()" class="bg-white hover:bg-slate-100 p-3 rounded-2xl border border-slate-200 flex flex-col items-center justify-center text-center shadow-sm">
+                    <span class="text-2xl mb-1">📊</span>
+                    <span class="text-xs font-bold">Export Excel</span>
+                </button>
+            </div>
+
+            <!-- Recent Catalog Preview -->
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h2 class="text-base font-bold text-navy-900">Recent Showroom Items</h2>
+                        <p class="text-xs text-slate-500">Fast catalog view with live stock and pricing</p>
+                    </div>
+                    <button onclick="switchTab('products')" class="text-xs font-bold text-navy-900 hover:underline">View All ➔</button>
+                </div>
+                <div id="dashboard-recent-list" class="space-y-3"></div>
+            </div>
+        </section>
+
+        <!-- TAB 2: PRODUCTS (CATALOG) -->
+        <section id="tab-products" class="hidden space-y-4">
+            <!-- Search & Filters Header -->
+            <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm space-y-3">
+                <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
+                    <input type="text" id="search-input" oninput="renderProducts()" placeholder="🔍 Search product name, code (HW-1234), brand..." class="px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-navy-900 flex-1">
+                    <div class="flex items-center space-x-2">
+                        <button onclick="openAddProductModal()" class="px-4 py-2.5 bg-navy-900 text-white rounded-xl text-xs font-bold hover:bg-navy-800 shadow flex items-center space-x-1">
+                            <span>➕ Add Product</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Stock Filter Chips -->
+                <div class="flex items-center space-x-2 overflow-x-auto pb-1 text-xs">
+                    <span class="text-slate-500 font-bold whitespace-nowrap">Stock:</span>
+                    <button onclick="filterStock('ALL')" class="stock-filter-chip active px-3 py-1 rounded-lg border font-semibold bg-navy-900 text-white border-navy-900" data-stock="ALL">All Stock</button>
+                    <button onclick="filterStock('IN_STOCK')" class="stock-filter-chip px-3 py-1 rounded-lg border font-semibold bg-white text-slate-700 border-slate-300" data-stock="IN_STOCK">🟢 In Stock (>2)</button>
+                    <button onclick="filterStock('LOW_STOCK')" class="stock-filter-chip px-3 py-1 rounded-lg border font-semibold bg-white text-slate-700 border-slate-300" data-stock="LOW_STOCK">🟡 Low Stock (&lt;2)</button>
+                    <button onclick="filterStock('OUT_OF_STOCK')" class="stock-filter-chip px-3 py-1 rounded-lg border font-semibold bg-white text-slate-700 border-slate-300" data-stock="OUT_OF_STOCK">🔴 Out of Stock (0)</button>
+                </div>
+            </div>
+
+            <!-- Products List Grid -->
+            <div id="products-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+        </section>
+
+        <!-- TAB 3: COMPANIES -->
+        <section id="tab-companies" class="hidden space-y-4">
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h2 class="text-base font-bold text-navy-900">Showroom Brands & Companies</h2>
+                        <p class="text-xs text-slate-500">Manage vendor catalogs and switch company</p>
+                    </div>
+                    <button onclick="openCompanyModal()" class="px-3.5 py-2 bg-navy-900 text-white rounded-xl text-xs font-bold hover:bg-navy-800 shadow flex items-center space-x-1">
+                        <span>➕ Add Company</span>
+                    </button>
+                </div>
+                <div id="companies-list" class="space-y-3"></div>
+            </div>
+        </section>
+
+        <!-- TAB 4: TOOLS & BACKUP -->
+        <section id="tab-tools" class="hidden space-y-4">
+            <!-- Customer Safe Mode Card with Eye Icon (Hidden from customer view) -->
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <button id="safe-mode-btn" onclick="toggleSafeMode()" title="Toggle View" class="w-12 h-12 rounded-2xl flex items-center justify-center text-xl transition-all shadow bg-slate-800 text-slate-200 hover:bg-slate-700">
+                        <span id="safe-mode-icon">👁️</span>
+                    </button>
+                    <div>
+                        <div class="font-bold text-sm text-navy-900" id="tool-safe-title">Customer Safe Mode: ACTIVE</div>
+                        <div class="text-xs text-slate-500" id="tool-safe-desc">Customer ke samne purchase cost aur dealer margin hidden hain.</div>
+                    </div>
+                </div>
+                <button onclick="toggleSafeMode()" id="tool-safe-action-btn" class="px-3.5 py-2 bg-navy-900 hover:bg-navy-800 text-white text-xs font-bold rounded-xl shadow">
+                    Unlock with PIN
+                </button>
+            </div>
+
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-4">
+                <h2 class="text-base font-bold text-navy-900">Security & Catalog Management</h2>
+                
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div class="p-4 border rounded-xl bg-slate-50 space-y-2">
+                        <div class="font-bold text-sm">🔐 Owner Security PIN</div>
+                        <p class="text-xs text-slate-500">Margin unlock karne ka 4-digit PIN badlein (Current Default: 1234).</p>
+                        <button onclick="promptChangePin()" class="px-3 py-2 bg-navy-900 text-white text-xs font-bold rounded-lg hover:bg-navy-800">Change PIN</button>
+                    </div>
+                    <div class="p-4 border rounded-xl bg-slate-50 space-y-2">
+                        <div class="font-bold text-sm">📊 Excel / CSV Export</div>
+                        <p class="text-xs text-slate-500">Selected company ka catalog Excel CSV me download karein.</p>
+                        <button onclick="exportCSV()" class="px-3 py-2 bg-navy-900 text-white text-xs font-bold rounded-lg hover:bg-navy-800">Download CSV</button>
+                    </div>
+                    <div class="p-4 border rounded-xl bg-slate-50 space-y-2">
+                        <div class="font-bold text-sm">🔄 Reset to Demo Catalog</div>
+                        <p class="text-xs text-slate-500">Reload demo sanitaryware & bathware products.</p>
+                        <button onclick="resetDemoData()" class="px-3 py-2 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-700">Load Demo Data</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- BOTTOM NAVIGATION (5 TABS) -->
+    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 z-30 shadow-lg">
+        <div class="max-w-md mx-auto grid grid-cols-4 py-2">
+            <button onclick="switchTab('dashboard')" class="nav-btn active flex flex-col items-center text-navy-900" data-tab="dashboard">
+                <span class="text-lg">🏠</span>
+                <span class="text-[10px] font-bold">Home</span>
+            </button>
+            <button onclick="switchTab('products')" class="nav-btn flex flex-col items-center text-slate-400 hover:text-navy-900" data-tab="products">
+                <span class="text-lg">📦</span>
+                <span class="text-[10px] font-bold">Products</span>
+            </button>
+            <button onclick="switchTab('companies')" class="nav-btn flex flex-col items-center text-slate-400 hover:text-navy-900" data-tab="companies">
+                <span class="text-lg">🏢</span>
+                <span class="text-[10px] font-bold">Brands</span>
+            </button>
+            <button onclick="switchTab('tools')" class="nav-btn flex flex-col items-center text-slate-400 hover:text-navy-900" data-tab="tools">
+                <span class="text-lg">⚙️</span>
+                <span class="text-[10px] font-bold">Tools</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- ============================================== -->
+    <!-- MODAL 1: ⚡ QUICK COUNTER CALCULATOR (MODAL)  -->
+    <!-- ============================================== -->
+    <div id="quick-calc-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 overflow-y-auto">
+        <div class="bg-white w-full max-w-lg rounded-3xl p-5 shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto">
+            <!-- Header -->
+            <div class="flex items-center justify-between border-b pb-3">
+                <div class="flex items-center space-x-2">
+                    <span class="text-2xl">⚡</span>
+                    <div>
+                        <h3 class="font-extrabold text-base text-navy-900">Quick Counter Calculator</h3>
+                        <p class="text-[11px] text-slate-500">1-Second Net Final Rate with GST & WhatsApp Share</p>
+                    </div>
+                </div>
+                <button onclick="closeQuickCalc()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-600 font-bold hover:bg-slate-200">✕</button>
+            </div>
+
+            <!-- Inputs -->
+            <div class="space-y-3">
+                <div>
+                    <label class="text-xs font-bold text-slate-700">Item Name (Optional)</label>
+                    <input type="text" id="calc-item-name" placeholder="e.g. Diverter 40mm / Basin Mixer" class="w-full mt-1 px-3 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-navy-900">
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs font-bold text-slate-700">MRP (₹) *</label>
+                        <input type="number" id="calc-mrp" oninput="runCalculator()" placeholder="14500" class="w-full mt-1 px-3 py-2 border rounded-xl text-base font-bold focus:ring-2 focus:ring-navy-900">
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold text-slate-700">Discount % *</label>
+                        <input type="number" id="calc-discount" oninput="runCalculator()" placeholder="35" class="w-full mt-1 px-3 py-2 border rounded-xl text-base font-bold text-red-600 focus:ring-2 focus:ring-navy-900">
+                    </div>
+                </div>
+
+                <!-- Quick Discount Chips -->
+                <div>
+                    <div class="text-[11px] text-slate-500 font-bold mb-1">Quick Discount % Chips:</div>
+                    <div class="flex flex-wrap gap-1.5">
+                        <button onclick="setCalcDiscount(15)" class="px-2.5 py-1 text-xs font-bold rounded-lg bg-slate-100 hover:bg-slate-200">15%</button>
+                        <button onclick="setCalcDiscount(20)" class="px-2.5 py-1 text-xs font-bold rounded-lg bg-slate-100 hover:bg-slate-200">20%</button>
+                        <button onclick="setCalcDiscount(25)" class="px-2.5 py-1 text-xs font-bold rounded-lg bg-slate-100 hover:bg-slate-200">25%</button>
+                        <button onclick="setCalcDiscount(30)" class="px-2.5 py-1 text-xs font-bold rounded-lg bg-slate-100 hover:bg-slate-200">30%</button>
+                        <button onclick="setCalcDiscount(35)" class="px-2.5 py-1 text-xs font-bold rounded-lg bg-slate-100 hover:bg-slate-200">35%</button>
+                        <button onclick="setCalcDiscount(40)" class="px-2.5 py-1 text-xs font-bold rounded-lg bg-slate-100 hover:bg-slate-200">40%</button>
+                        <button onclick="setCalcDiscount(50)" class="px-2.5 py-1 text-xs font-bold rounded-lg bg-slate-100 hover:bg-slate-200">50%</button>
+                    </div>
+                </div>
+
+                <!-- Quantity & GST -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs font-bold text-slate-700">Quantity (Pcs)</label>
+                        <input type="number" id="calc-qty" oninput="runCalculator()" value="1" min="1" class="w-full mt-1 px-3 py-2 border rounded-xl text-sm font-bold">
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold text-slate-700">GST Rate %</label>
+                        <select id="calc-gst" onchange="runCalculator()" class="w-full mt-1 px-3 py-2 border rounded-xl text-sm font-bold">
+                            <option value="18" selected>18% GST (Standard)</option>
+                            <option value="12">12% GST</option>
+                            <option value="28">28% GST</option>
+                            <option value="5">5% GST</option>
+                            <option value="0">0% GST</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Purchase Rate & Margin (Safe Mode Guard) -->
+                <div id="calc-margin-box" class="p-3 rounded-xl border transition-all"></div>
+            </div>
+
+            <!-- RESULT HIGHLIGHT CARD -->
+            <div class="bg-emerald-50 border-2 border-emerald-500 rounded-2xl p-4 text-center space-y-2">
+                <div class="text-[11px] font-extrabold uppercase tracking-wider text-emerald-800">Final Net Payable (अंतिम देय भाव)</div>
+                <div id="calc-final-rate" class="text-3xl font-black text-emerald-700">₹0</div>
+                <div id="calc-breakdown" class="text-xs text-slate-600">MRP - Discount + GST Breakdown</div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="grid grid-cols-2 gap-2 pt-2">
+                <button onclick="shareCalcWhatsApp()" class="py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center space-x-1 shadow">
+                    <span>📲 WhatsApp Quote</span>
+                </button>
+                <button onclick="addCalcToQuotation()" class="py-3 bg-navy-900 hover:bg-navy-800 text-white rounded-xl text-xs font-bold flex items-center justify-center space-x-1 shadow">
+                    <span>➕ Add to Bill / Quote</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- MODAL 2: 🖨️ QUOTATION & PRINT / PDF MODAL    -->
+    <!-- ============================================== -->
+    <div id="quote-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 overflow-y-auto">
+        <div class="bg-white w-full max-w-2xl rounded-3xl p-5 shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto">
+            <div class="flex items-center justify-between border-b pb-3">
+                <div class="flex items-center space-x-2">
+                    <span class="text-2xl">🧾</span>
+                    <div>
+                        <h3 class="font-extrabold text-base text-navy-900">Quotation & GST Tax Invoice</h3>
+                        <p class="text-[11px] text-slate-500">Print A4 / Thermal receipt & WhatsApp bill</p>
+                    </div>
+                </div>
+                <button onclick="closeQuotationModal()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-600 font-bold hover:bg-slate-200">✕</button>
+            </div>
+
+            <!-- Customer Details -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 p-3 rounded-2xl border">
+                <div>
+                    <label class="text-xs font-bold text-slate-700">Customer Name (ग्राहक का नाम)</label>
+                    <input type="text" id="quote-customer-name" placeholder="Ramesh Patel" class="w-full mt-1 px-3 py-1.5 border rounded-lg text-sm">
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-slate-700">Customer Mobile (WhatsApp)</label>
+                    <input type="text" id="quote-customer-phone" placeholder="9876543210" class="w-full mt-1 px-3 py-1.5 border rounded-lg text-sm">
+                </div>
+            </div>
+
+            <!-- Bill Items Table -->
+            <div class="overflow-x-auto border rounded-xl">
+                <table class="w-full text-xs text-left">
+                    <thead class="bg-navy-900 text-white uppercase">
+                        <tr>
+                            <th class="p-2.5">#</th>
+                            <th class="p-2.5">Item</th>
+                            <th class="p-2.5 text-center">Qty</th>
+                            <th class="p-2.5 text-right">MRP</th>
+                            <th class="p-2.5 text-center">Disc%</th>
+                            <th class="p-2.5 text-right">Rate</th>
+                            <th class="p-2.5 text-right">Total</th>
+                            <th class="p-2.5 text-center">Del</th>
+                        </tr>
+                    </thead>
+                    <tbody id="quote-items-body" class="divide-y"></tbody>
+                </table>
+            </div>
+
+            <!-- Summary Totals -->
+            <div class="bg-slate-50 p-4 rounded-2xl border space-y-1 text-xs">
+                <div class="flex justify-between"><span>Total MRP:</span><span id="bill-mrp" class="font-semibold">₹0</span></div>
+                <div class="flex justify-between text-red-600"><span>Discount:</span><span id="bill-discount" class="font-semibold">-₹0</span></div>
+                <div class="flex justify-between"><span>Taxable Subtotal:</span><span id="bill-taxable" class="font-semibold">₹0</span></div>
+                <div class="flex justify-between"><span>GST (CGST + SGST):</span><span id="bill-gst" class="font-semibold">+₹0</span></div>
+                <div class="flex justify-between text-base font-black text-emerald-700 pt-2 border-t">
+                    <span>NET GRAND TOTAL:</span>
+                    <span id="bill-grand-total">₹0</span>
+                </div>
+            </div>
+
+            <!-- Actions: Print & WhatsApp -->
+            <div class="grid grid-cols-2 gap-3 pt-2">
+                <button onclick="printQuotation()" class="py-3 bg-navy-900 hover:bg-navy-800 text-white rounded-xl text-xs font-bold flex items-center justify-center space-x-1 shadow">
+                    <span>🖨️ Print / Save PDF</span>
+                </button>
+                <button onclick="shareQuotationWhatsApp()" class="py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center space-x-1 shadow">
+                    <span>📲 Send WhatsApp Bill</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- MODAL 3: ADD / EDIT PRODUCT MODAL             -->
+    <!-- ============================================== -->
+    <div id="product-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 overflow-y-auto">
+        <div class="bg-white w-full max-w-md rounded-3xl p-5 shadow-2xl space-y-3 max-h-[92vh] overflow-y-auto">
+            <div class="flex items-center justify-between border-b pb-2">
+                <h3 id="product-modal-title" class="font-bold text-base text-navy-900">Add New Product</h3>
+                <button onclick="closeProductModal()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-600 font-bold">✕</button>
+            </div>
+            <form onsubmit="saveProductForm(event)" class="space-y-3 text-xs">
+                <input type="hidden" id="prod-id">
+                
+                <!-- Product Image Upload -->
+                <div>
+                    <label class="font-bold text-slate-700 flex items-center justify-between">
+                        <span>Product Image (फोटो)</span>
+                        <span class="text-[10px] text-slate-400 font-normal">Optional</span>
+                    </label>
+                    <input type="hidden" id="prod-image" value="">
+                    
+                    <div class="mt-1 flex items-center space-x-3 p-2 bg-slate-50 border border-slate-200 rounded-xl">
+                        <div id="image-preview-wrapper" class="relative w-14 h-14 rounded-lg border border-slate-300 bg-white flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
+                            <span id="image-preview-placeholder" class="text-2xl text-slate-400">📷</span>
+                            <img id="image-preview-img" src="" alt="Preview" class="hidden w-full h-full object-cover">
+                            <button type="button" id="remove-image-btn" onclick="removeProductImage()" class="hidden absolute top-0.5 right-0.5 w-4 h-4 bg-red-600 hover:bg-red-700 text-white rounded-full text-[9px] font-bold flex items-center justify-center shadow">✕</button>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <input type="file" id="prod-image-file" accept="image/*" onchange="handleProductImageUpload(event)" class="block w-full text-xs text-slate-500 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[11px] file:font-bold file:bg-navy-900 file:text-white hover:file:bg-navy-800 cursor-pointer">
+                            <p class="text-[10px] text-slate-400 mt-1 truncate">Gallery / Camera se photo chunein</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="font-bold">Product Code *</label>
+                    <input type="text" id="prod-code" required placeholder="HW-101" class="w-full mt-1 p-2 border rounded-lg">
+                </div>
+                <div>
+                    <label class="font-bold">Product Name *</label>
+                    <input type="text" id="prod-name" required placeholder="Wall Mixer 3-in-1" class="w-full mt-1 p-2 border rounded-lg">
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="font-bold">Brand</label>
+                        <input type="text" id="prod-brand" placeholder="Jaquar" class="w-full mt-1 p-2 border rounded-lg">
+                    </div>
+                    <div>
+                        <label class="font-bold">Category</label>
+                        <input type="text" id="prod-cat" placeholder="Faucets" class="w-full mt-1 p-2 border rounded-lg">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="font-bold">MRP (₹) *</label>
+                        <input type="number" id="prod-mrp" required placeholder="6500" class="w-full mt-1 p-2 border rounded-lg font-bold">
+                    </div>
+                    <div>
+                        <label class="font-bold">Discount %</label>
+                        <input type="number" id="prod-disc" placeholder="30" value="0" class="w-full mt-1 p-2 border rounded-lg font-bold">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="font-bold">GST %</label>
+                        <input type="number" id="prod-gst" placeholder="18" value="18" class="w-full mt-1 p-2 border rounded-lg">
+                    </div>
+                    <div>
+                        <label class="font-bold">Stock Qty (Pcs) *</label>
+                        <input type="number" id="prod-stock" required placeholder="5" value="5" class="w-full mt-1 p-2 border rounded-lg font-bold">
+                    </div>
+                </div>
+                <!-- Hidden Purchase Cost Container (ONLY visible when eye icon is clicked & unlocked) -->
+                <div id="modal-purchase-container" class="pt-1">
+                    <!-- Locked view: ONLY small eye icon, NO purchase price text at all -->
+                    <div id="modal-purchase-locked" class="flex items-center justify-end py-1">
+                        <button type="button" onclick="revealModalPurchasePrice()" title="View Internal Details" class="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-navy-900 text-sm flex items-center justify-center shadow-sm transition border border-slate-200">
+                            👁️
+                        </button>
+                    </div>
+
+                    <!-- Unlocked view: Revealed only after clicking eye -->
+                    <div id="modal-purchase-unlocked" class="hidden space-y-1.5 p-3 rounded-xl border border-amber-200 bg-amber-50/70">
+                        <div class="flex items-center justify-between">
+                            <label class="font-bold text-navy-900 text-xs flex items-center space-x-1.5">
+                                <span>🔐 Purchase Cost (खरीद रेट ₹)</span>
+                            </label>
+                            <button type="button" onclick="hideModalPurchasePrice()" class="text-slate-400 hover:text-red-600 text-xs font-bold" title="Hide cost">✕ Hide</button>
+                        </div>
+                        <input type="number" id="prod-purchase" placeholder="3800" value="0" class="w-full p-2 border border-slate-300 rounded-lg font-bold bg-white text-navy-900 focus:ring-2 focus:ring-amber-400">
+                    </div>
+                </div>
+
+                <button type="submit" class="w-full py-2.5 bg-navy-900 text-white rounded-xl font-bold mt-3 shadow">Save Product</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- MODAL 4: 🔐 OWNER SECURITY PIN MODAL         -->
+    <!-- ============================================== -->
+    <div id="pin-modal" class="hidden fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl space-y-4 text-center">
+            <div class="w-14 h-14 bg-red-100 text-red-700 rounded-full flex items-center justify-center mx-auto text-2xl font-bold shadow-inner">
+                🔒
+            </div>
+            <div>
+                <h3 class="font-extrabold text-lg text-navy-900">Owner Verification</h3>
+                <p class="text-xs text-slate-500 mt-1">Owner PIN daalein.</p>
+            </div>
+            
+            <div class="flex justify-center my-3">
+                <input type="password" id="pin-input" maxlength="4" placeholder="••••" class="w-44 text-center tracking-[0.6em] text-2xl font-black p-3 bg-slate-100 border-2 border-slate-300 rounded-2xl focus:border-navy-900 focus:outline-none focus:bg-white" onkeyup="if(event.key==='Enter') verifyOwnerPin()">
+            </div>
+            <div id="pin-error" class="hidden text-xs font-bold text-red-600">❌ Galat PIN! Sirf Showroom Owner hi access kar sakte hain.</div>
+
+            <div class="grid grid-cols-2 gap-2 pt-2">
+                <button onclick="closePinModal()" class="py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold">Cancel</button>
+                <button onclick="verifyOwnerPin()" class="py-2.5 bg-navy-900 hover:bg-navy-800 text-white rounded-xl text-xs font-bold shadow">Unlock</button>
+            </div>
+            
+            <div class="text-[10px] text-slate-400">Default PIN: <strong>1234</strong> (Tools tab me change kar sakte hain)</div>
+        </div>
+    </div>
+    <!-- ============================================== -->
+    <!-- MODAL 5: 🏢 ADD COMPANY / BRAND MODAL        -->
+    <!-- ============================================== -->
+    <div id="company-modal" class="hidden fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl space-y-4">
+            <div class="flex items-center justify-between border-b pb-3">
+                <div class="flex items-center space-x-2">
+                    <span class="text-2xl">🏢</span>
+                    <h3 class="font-extrabold text-base text-navy-900">Add Company / Brand</h3>
+                </div>
+                <button onclick="closeCompanyModal()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-600 font-bold hover:bg-slate-200">✕</button>
+            </div>
+            <form onsubmit="saveCompanyForm(event)" class="space-y-3 text-xs">
+                <div>
+                    <label class="font-bold text-slate-700">Company / Brand Name *</label>
+                    <input type="text" id="new-company-name" required placeholder="e.g. Hindware / Kohler / Somany" class="w-full mt-1 p-2.5 border rounded-xl font-bold text-sm focus:ring-2 focus:ring-navy-900">
+                </div>
+                <div>
+                    <label class="font-bold text-slate-700">Category / Short Description</label>
+                    <input type="text" id="new-company-desc" placeholder="e.g. Sanitaryware, Tiles, CPVC" class="w-full mt-1 p-2.5 border rounded-xl text-sm focus:ring-2 focus:ring-navy-900">
+                </div>
+                <button type="submit" class="w-full py-3 bg-navy-900 hover:bg-navy-800 text-white rounded-xl font-bold mt-3 shadow">
+                    ✓ Create Separate Catalog
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- INVISIBLE PRINT CONTAINER FOR PRINT / PDF -->
+    <div id="printable-invoice" class="hidden p-8 bg-white max-w-2xl mx-auto"></div>
+
+    <!-- SCRIPT LOGIC -->
+    <script>
+        // Initial Demo Data
+        const defaultCompanies = [
+            { id: 1, name: 'Jaquar', desc: 'Faucets, Showers & Sanitaryware' },
+            { id: 2, name: 'Cera', desc: 'Sanitaryware, Wash Basins & Cisterns' },
+            { id: 3, name: 'Astral', desc: 'CPVC Pipes & Plumbing Fittings' }
+        ];
+
+        const defaultProducts = [
+            { id: 1, company: 'Jaquar', code: 'J-DIV-401', name: 'Florentine 40mm Concealed Diverter', brand: 'Jaquar', category: 'Faucets', mrp: 14500, discount: 35, gst: 18, purchase: 7200, stock: 1 },
+            { id: 2, company: 'Jaquar', code: 'J-WM-102', name: 'Wall Mixer 3-in-1 with Bend', brand: 'Jaquar', category: 'Faucets', mrp: 8900, discount: 30, gst: 18, purchase: 4600, stock: 0 },
+            { id: 3, company: 'Cera', code: 'C-EWC-501', name: 'Wall Hung EWC Rimless with Soft Seat', brand: 'Cera', category: 'Sanitaryware', mrp: 16800, discount: 28, gst: 18, purchase: 9100, stock: 6 },
+            { id: 4, company: 'Cera', code: 'C-BAS-204', name: 'Countertop Table Basin Glazed White', brand: 'Cera', category: 'Sanitaryware', mrp: 4500, discount: 25, gst: 18, purchase: 2400, stock: 2 },
+            { id: 5, company: 'Astral', code: 'A-PIP-101', name: 'Astral CPVC Pro Pipe 1 inch (3m)', brand: 'Astral', category: 'Pipes & Fittings', mrp: 1200, discount: 20, gst: 18, purchase: 750, stock: 15 }
+        ];
+
+        let companies = JSON.parse(localStorage.getItem('showroom_companies')) || defaultCompanies;
+        let products = JSON.parse(localStorage.getItem('showroom_products')) || defaultProducts;
+
+        // Ensure every product has a valid company property
+        products.forEach(p => {
+            if (!p.company) p.company = p.brand || 'Jaquar';
+        });
+
+        let activeCompany = localStorage.getItem('showroom_active_comp');
+        if (!activeCompany || !companies.some(c => c.name.trim().toLowerCase() === activeCompany.trim().toLowerCase())) {
+            activeCompany = companies.length > 0 ? companies[0].name : 'Jaquar';
+        }
+
+        // STRICT USER REQUIREMENT: Customer Safe Mode is DEFAULT ON
+        let isCustomerSafeMode = localStorage.getItem('showroom_safe_mode') === null ? true : (localStorage.getItem('showroom_safe_mode') === 'true');
+        let ownerPin = localStorage.getItem('showroom_owner_pin') || '1234';
+        let autoLockTimer = null;
+        let selectedStockFilter = 'ALL';
+        let quotationCart = JSON.parse(localStorage.getItem('showroom_quote_cart')) || [];
+
+        function saveStorage() {
+            localStorage.setItem('showroom_products', JSON.stringify(products));
+            localStorage.setItem('showroom_companies', JSON.stringify(companies));
+            localStorage.setItem('showroom_active_comp', activeCompany);
+            localStorage.setItem('showroom_safe_mode', isCustomerSafeMode);
+            localStorage.setItem('showroom_owner_pin', ownerPin);
+            localStorage.setItem('showroom_quote_cart', JSON.stringify(quotationCart));
+        }
+
+        // Helper: Strict Isolation - Returns products of the active selected company ONLY
+        function getActiveCompanyProducts() {
+            if (!activeCompany && companies.length > 0) {
+                activeCompany = companies[0].name;
+            }
+            return products.filter(p => {
+                const comp = (p.company || p.brand || '').trim().toLowerCase();
+                return comp === activeCompany.trim().toLowerCase();
+            });
+        }
+
+        // Populate Top-Bar Dropdown Selector
+        function populateCompanySelectors() {
+            const select = document.getElementById('header-company-select');
+            if (!select) return;
+
+            if (!companies.some(c => c.name.trim().toLowerCase() === activeCompany.trim().toLowerCase())) {
+                activeCompany = companies.length > 0 ? companies[0].name : 'Jaquar';
+            }
+
+            select.innerHTML = companies.map(c => {
+                const isSel = c.name.trim().toLowerCase() === activeCompany.trim().toLowerCase();
+                return `<option value="${c.name}" ${isSel ? 'selected' : ''}>🏢 ${c.name}</option>`;
+            }).join('');
+        }
+
+        function setActiveCompany(compName) {
+            activeCompany = compName;
+            localStorage.setItem('showroom_active_comp', activeCompany);
+            populateCompanySelectors();
+            renderDashboard();
+            renderProducts();
+            renderCompaniesList();
+        }
+
+        // ============================================
+        // 🏢 COMPANY / BRAND MANAGEMENT
+        // ============================================
+        function openCompanyModal() {
+            document.getElementById('new-company-name').value = '';
+            document.getElementById('new-company-desc').value = '';
+            document.getElementById('company-modal').classList.remove('hidden');
+            setTimeout(() => document.getElementById('new-company-name').focus(), 100);
+        }
+
+        function closeCompanyModal() {
+            document.getElementById('company-modal').classList.add('hidden');
+        }
+
+        function saveCompanyForm(e) {
+            e.preventDefault();
+            const name = document.getElementById('new-company-name').value.trim();
+            const desc = document.getElementById('new-company-desc').value.trim();
+
+            if (!name) return;
+
+            const exists = companies.some(c => c.name.trim().toLowerCase() === name.toLowerCase());
+            if (exists) {
+                alert(`Company/Brand "${name}" pehle se maujood hai!`);
+                return;
+            }
+
+            const newComp = {
+                id: Date.now(),
+                name: name,
+                desc: desc || `${name} Catalog`
+            };
+
+            companies.push(newComp);
+            activeCompany = name; // Automatically switch to the newly created company catalog
+            saveStorage();
+            closeCompanyModal();
+
+            populateCompanySelectors();
+            renderCompaniesList();
+            renderDashboard();
+            renderProducts();
+
+            alert(`✅ Company "${name}" create ho gayi! Ab is company ka separate catalog khul gaya hai.`);
+        }
+
+        function deleteCompany(id) {
+            if (companies.length <= 1) {
+                alert("Kam se kam 1 company catalog hona zaroori hai!");
+                return;
+            }
+            const comp = companies.find(c => c.id === id);
+            if (!comp) return;
+
+            const count = products.filter(p => (p.company || p.brand || '').trim().toLowerCase() === comp.name.trim().toLowerCase()).length;
+            if (!confirm(`Kya aap "${comp.name}" aur iske sabhi (${count}) products ko delete karna chahte hain?`)) {
+                return;
+            }
+
+            companies = companies.filter(c => c.id !== id);
+            products = products.filter(p => (p.company || p.brand || '').trim().toLowerCase() !== comp.name.trim().toLowerCase());
+
+            if (activeCompany.trim().toLowerCase() === comp.name.trim().toLowerCase()) {
+                activeCompany = companies[0].name;
+            }
+
+            saveStorage();
+            populateCompanySelectors();
+            renderCompaniesList();
+            renderDashboard();
+            renderProducts();
+        }
+
+        function renderCompaniesList() {
+            const listEl = document.getElementById('companies-list');
+            if (!listEl) return;
+
+            listEl.innerHTML = companies.map(c => {
+                const isCurrent = c.name.trim().toLowerCase() === activeCompany.trim().toLowerCase();
+                const compProds = products.filter(p => (p.company || p.brand || '').trim().toLowerCase() === c.name.trim().toLowerCase());
+                const prodCount = compProds.length;
+                const totalVal = compProds.reduce((sum, p) => sum + (p.mrp * (1 - p.discount/100) * (1 + p.gst/100) * Math.max(1, p.stock)), 0);
+
+                return `
+                <div class="rounded-2xl p-4 border transition-all ${isCurrent ? 'bg-amber-50/70 border-amber-300 shadow-md ring-1 ring-amber-300' : 'bg-white border-slate-200 shadow-sm hover:border-slate-300'}">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-12 h-12 rounded-2xl flex items-center justify-center text-xl font-black ${isCurrent ? 'bg-navy-900 text-gold-400 shadow' : 'bg-slate-100 text-slate-700'}">
+                                🏢
+                            </div>
+                            <div>
+                                <div class="flex items-center space-x-2">
+                                    <h3 class="font-extrabold text-base text-navy-900">${c.name}</h3>
+                                    ${isCurrent ? '<span class="text-[10px] font-extrabold bg-navy-900 text-gold-400 px-2.5 py-0.5 rounded-full shadow-sm">✓ SELECTED CATALOG</span>' : ''}
+                                </div>
+                                <p class="text-xs text-slate-500">${c.desc || 'Showroom Vendor Catalog'}</p>
+                                <div class="flex items-center space-x-3 text-xs mt-1">
+                                    <span class="font-bold text-slate-700">${prodCount} Products</span>
+                                    <span class="text-slate-300">•</span>
+                                    <span class="font-bold text-emerald-700">₹${Math.round(totalVal).toLocaleString('en-IN')} Catalog Value</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center space-x-2 self-end sm:self-center">
+                            ${isCurrent ? `
+                                <button class="px-4 py-2 bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-sm cursor-default flex items-center space-x-1">
+                                    <span>✓ Selected</span>
+                                </button>
+                            ` : `
+                                <button onclick="setActiveCompany('${c.name.replace(/'/g, "\\'")}')" class="px-4 py-2 bg-navy-900 hover:bg-navy-800 text-white font-bold text-xs rounded-xl shadow-sm transition flex items-center space-x-1">
+                                    <span>Select Brand ➔</span>
+                                </button>
+                            `}
+                            ${companies.length > 1 ? `
+                                <button onclick="deleteCompany(${c.id})" title="Delete Company Catalog" class="p-2 hover:bg-red-50 text-red-500 hover:text-red-700 rounded-xl transition text-xs font-bold border border-transparent hover:border-red-200">
+                                    🗑️
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        // Customer Safe Mode Toggle with PIN Protection
+        function toggleSafeMode() {
+            if (isCustomerSafeMode) {
+                // Trying to UNLOCK: Require Owner PIN
+                openPinModal();
+            } else {
+                // Trying to LOCK: Immediate 1-tap lock (No PIN needed to hide margins)
+                lockSafeMode();
+            }
+        }
+
+        function openPinModal() {
+            document.getElementById('pin-input').value = '';
+            document.getElementById('pin-error').classList.add('hidden');
+            document.getElementById('pin-modal').classList.remove('hidden');
+            setTimeout(() => document.getElementById('pin-input').focus(), 100);
+        }
+
+        function closePinModal() {
+            document.getElementById('pin-modal').classList.add('hidden');
+        }
+
+        function verifyOwnerPin() {
+            const entered = document.getElementById('pin-input').value.trim();
+            if (entered === ownerPin) {
+                isCustomerSafeMode = false;
+                saveStorage();
+                updateSafeModeUI();
+                renderProducts();
+                renderDashboard();
+                runCalculator();
+                closePinModal();
+
+                // Start 2-Minute Auto-Relock Timer for Security
+                if (autoLockTimer) clearTimeout(autoLockTimer);
+                autoLockTimer = setTimeout(() => {
+                    if (!isCustomerSafeMode) {
+                        lockSafeMode();
+                    }
+                }, 120000); // 2 minutes auto-relock
+            } else {
+                const err = document.getElementById('pin-error');
+                err.classList.remove('hidden');
+                document.getElementById('pin-input').value = '';
+                document.getElementById('pin-input').focus();
+            }
+        }
+
+        function lockSafeMode() {
+            if (autoLockTimer) clearTimeout(autoLockTimer);
+            isCustomerSafeMode = true;
+            saveStorage();
+            updateSafeModeUI();
+            renderProducts();
+            renderDashboard();
+            runCalculator();
+        }
+
+        function promptChangePin() {
+            const oldPin = prompt("Purana Owner PIN daalein (Default: 1234):");
+            if (oldPin === null) return;
+            if (oldPin.trim() !== ownerPin) {
+                alert("❌ Galat purana PIN! PIN change nahi hua.");
+                return;
+            }
+            const newPin = prompt("Naya 4-Digit Secret PIN daalein (e.g. 5892):");
+            if (!newPin || newPin.trim().length !== 4 || isNaN(newPin.trim())) {
+                alert("❌ PIN theek 4-digit number hona chahiye!");
+                return;
+            }
+            ownerPin = newPin.trim();
+            saveStorage();
+            alert("✅ Naya Owner PIN set ho gaya! Ab sirf aap hi margin unlock kar payenge.");
+        }
+
+        function updateSafeModeUI() {
+            const btn = document.getElementById('safe-mode-btn');
+            const icon = document.getElementById('safe-mode-icon');
+            const title = document.getElementById('tool-safe-title');
+            const desc = document.getElementById('tool-safe-desc');
+            const actionBtn = document.getElementById('tool-safe-action-btn');
+
+            if (isCustomerSafeMode) {
+                if (btn) btn.className = "w-12 h-12 rounded-2xl flex items-center justify-center text-xl transition-all shadow bg-slate-800 text-slate-200 hover:bg-slate-700";
+                if (icon) icon.innerText = "👁️";
+                if (title) title.innerText = "Customer Safe Mode: ACTIVE";
+                if (desc) desc.innerText = "Customer ke samne purchase cost aur dealer margin hidden hain.";
+                if (actionBtn) {
+                    actionBtn.className = "px-3.5 py-2 bg-navy-900 hover:bg-navy-800 text-white text-xs font-bold rounded-xl shadow";
+                    actionBtn.innerText = "Unlock with PIN";
+                }
+            } else {
+                if (btn) btn.className = "w-12 h-12 rounded-2xl flex items-center justify-center text-xl transition-all shadow bg-amber-500 hover:bg-amber-400 text-navy-900 font-bold ring-2 ring-amber-300";
+                if (icon) icon.innerText = "👁️‍🗨️";
+                if (title) title.innerText = "Staff View: UNLOCKED";
+                if (desc) desc.innerText = "Dealer purchase cost aur margin % visible hain (Auto-locks in 2 mins).";
+                if (actionBtn) {
+                    actionBtn.className = "px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl shadow";
+                    actionBtn.innerText = "🔒 Re-Lock Now";
+                }
+            }
+        }
+
+        // Tab Switching
+        function switchTab(tabId) {
+            ['dashboard', 'products', 'companies', 'tools'].forEach(t => {
+                document.getElementById(`tab-${t}`).classList.add('hidden');
+            });
+            document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+
+            document.querySelectorAll('.nav-btn').forEach(b => {
+                if (b.dataset.tab === tabId) {
+                    b.className = "nav-btn active flex flex-col items-center text-navy-900";
+                } else {
+                    b.className = "nav-btn flex flex-col items-center text-slate-400 hover:text-navy-900";
+                }
+            });
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // Stock Status Utility
+        function getStockStatus(qty) {
+            if (qty <= 0) return { status: 'OUT_OF_STOCK', label: 'Out of Stock (खत्म)', badgeClass: 'bg-red-100 text-red-700 border-red-200' };
+            if (qty <= 2) return { status: 'LOW_STOCK', label: `Low Stock (${qty} pcs)`, badgeClass: 'bg-amber-100 text-amber-800 border-amber-200' };
+            return { status: 'IN_STOCK', label: `In Stock (${qty} pcs)`, badgeClass: 'bg-emerald-100 text-emerald-800 border-emerald-200' };
+        }
+
+        // Adjust Stock
+        function adjustStock(productId, delta) {
+            const p = products.find(x => x.id === productId);
+            if (p) {
+                p.stock = Math.max(0, (p.stock || 0) + delta);
+                saveStorage();
+                renderProducts();
+                renderDashboard();
+            }
+        }
+
+        // Render Dashboard (STRICT ISOLATION: Active Company Only)
+        function renderDashboard() {
+            const compProducts = getActiveCompanyProducts();
+            const lowStockCount = compProducts.filter(p => p.stock > 0 && p.stock <= 2).length;
+            const outOfStockCount = compProducts.filter(p => p.stock <= 0).length;
+
+            document.getElementById('stat-total-products').innerText = compProducts.length;
+            const totalValue = compProducts.reduce((sum, p) => sum + (p.mrp * (1 - p.discount/100) * (1 + p.gst/100) * Math.max(1, p.stock)), 0);
+            document.getElementById('stat-catalog-value').innerText = '₹' + Math.round(totalValue).toLocaleString('en-IN');
+            document.getElementById('stat-low-stock').innerText = lowStockCount + outOfStockCount;
+
+            // Low Stock Alert Banner
+            const banner = document.getElementById('low-stock-banner');
+            if (lowStockCount > 0 || outOfStockCount > 0) {
+                banner.classList.remove('hidden');
+                banner.onclick = () => { filterStock('LOW_STOCK'); switchTab('products'); };
+                if (outOfStockCount > 0) {
+                    banner.className = "cursor-pointer rounded-2xl p-4 border transition hover:shadow-md bg-red-50 border-red-200 text-red-900";
+                    document.getElementById('low-stock-badge-icon').className = "w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold text-white shadow bg-red-600";
+                    document.getElementById('low-stock-title').innerText = `⚠️ [${activeCompany}] ${outOfStockCount} Out of Stock • ${lowStockCount} Low Stock Items`;
+                } else {
+                    banner.className = "cursor-pointer rounded-2xl p-4 border transition hover:shadow-md bg-amber-50 border-amber-200 text-amber-900";
+                    document.getElementById('low-stock-badge-icon').className = "w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold text-white shadow bg-amber-600";
+                    document.getElementById('low-stock-title').innerText = `⚠️ [${activeCompany}] ${lowStockCount} Items Low in Stock (< 2 pcs)`;
+                }
+            } else {
+                banner.classList.add('hidden');
+            }
+
+            // Recent products strictly for active company
+            const recentList = document.getElementById('dashboard-recent-list');
+            if (compProducts.length === 0) {
+                recentList.innerHTML = `
+                    <div class="p-6 text-center text-slate-400 border border-dashed rounded-xl space-y-2">
+                        <p>Is company (<strong>${activeCompany}</strong>) me abhi koi product nahi hai.</p>
+                        <button onclick="openAddProductModal()" class="text-xs font-bold text-navy-900 bg-amber-400 hover:bg-amber-500 px-3.5 py-1.5 rounded-xl shadow-sm transition">➕ Add First Product to ${activeCompany}</button>
+                    </div>`;
+            } else {
+                recentList.innerHTML = compProducts.slice(0, 4).map(p => renderProductCardHTML(p, true)).join('');
+            }
+            updateQuoteBadge();
+        }
+
+        // Category Icon Helper for Default Fallback
+        function getCategoryIcon(cat = '') {
+            const c = (cat || '').toLowerCase();
+            if (c.includes('faucet') || c.includes('tap') || c.includes('mixer')) return '🚰';
+            if (c.includes('sanitary') || c.includes('ewc') || c.includes('toilet') || c.includes('seat')) return '🚽';
+            if (c.includes('basin') || c.includes('sink')) return '🧴';
+            if (c.includes('shower')) return '🚿';
+            if (c.includes('pipe') || c.includes('fitting') || c.includes('cpvc')) return '🔧';
+            if (c.includes('tile')) return '🧱';
+            return '📦';
+        }
+
+        // ============================================
+        // 📷 PRODUCT IMAGE UPLOAD & OPTIMIZATION
+        // ============================================
+        function handleProductImageUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            if (!file.type.startsWith('image/')) {
+                alert('Kripya valid photo file select karein (JPG/PNG/WEBP)!');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                const img = new Image();
+                img.onload = function() {
+                    // Resize to max 360x360 for high performance and lightweight localStorage
+                    const maxDim = 360;
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > height) {
+                        if (width > maxDim) {
+                            height = Math.round((height * maxDim) / width);
+                            width = maxDim;
+                        }
+                    } else {
+                        if (height > maxDim) {
+                            width = Math.round((width * maxDim) / height);
+                            height = maxDim;
+                        }
+                    }
+
+                    const canvas = document.createElement('canvas');
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    // Compress to JPEG 0.75 quality (~20-30KB)
+                    const compressedBase64 = canvas.toDataURL('image/jpeg', 0.75);
+                    setProductImagePreview(compressedBase64);
+                };
+                img.src = evt.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function setProductImagePreview(dataUrl) {
+            document.getElementById('prod-image').value = dataUrl || '';
+            const imgEl = document.getElementById('image-preview-img');
+            const placeholder = document.getElementById('image-preview-placeholder');
+            const removeBtn = document.getElementById('remove-image-btn');
+
+            if (dataUrl) {
+                imgEl.src = dataUrl;
+                imgEl.classList.remove('hidden');
+                placeholder.classList.add('hidden');
+                removeBtn.classList.remove('hidden');
+            } else {
+                imgEl.src = '';
+                imgEl.classList.add('hidden');
+                placeholder.classList.remove('hidden');
+                removeBtn.classList.add('hidden');
+                const fileInput = document.getElementById('prod-image-file');
+                if (fileInput) fileInput.value = '';
+            }
+        }
+
+        function removeProductImage() {
+            setProductImagePreview('');
+        }
+
+        // Render Product Card
+        function renderProductCardHTML(p, isCompact = false) {
+            const stockInfo = getStockStatus(p.stock);
+            const netPrice = Math.round(p.mrp * (1 - p.discount / 100) * (1 + p.gst / 100));
+            const taxable = Math.round(p.mrp * (1 - p.discount / 100));
+            const marginAmt = Math.round(taxable - (p.purchase || 0));
+            const marginPct = taxable > 0 ? Math.round((marginAmt / taxable) * 100) : 0;
+
+            return `
+            <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm hover:border-slate-300 transition space-y-3">
+                <div class="flex items-start space-x-3">
+                    ${p.image ? `
+                        <img src="${p.image}" alt="${p.name}" class="w-14 h-14 rounded-xl object-cover border border-slate-200 shadow-sm shrink-0 bg-white">
+                    ` : `
+                        <div class="w-14 h-14 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-2xl shrink-0 text-slate-500 shadow-inner">
+                            ${getCategoryIcon(p.category)}
+                        </div>
+                    `}
+                    <div class="min-w-0 flex-1">
+                        <div class="flex items-center space-x-2 flex-wrap gap-y-1">
+                            <span class="text-xs font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700">${p.company || p.brand}</span>
+                            <span class="text-xs font-mono text-slate-500">${p.code}</span>
+                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full border ${stockInfo.badgeClass}">${stockInfo.label}</span>
+                        </div>
+                        <h4 class="text-sm font-bold text-navy-900 mt-1 leading-snug">${p.name}</h4>
+                        <div class="text-xs text-slate-500">${p.category}</div>
+                    </div>
+                </div>
+
+                <div class="bg-slate-50 rounded-xl p-3 flex items-center justify-between">
+                    <div>
+                        <div class="text-[10px] text-slate-500">MRP: <span class="line-through">₹${p.mrp}</span> (${p.discount}% off)</div>
+                        <div class="text-base font-black text-emerald-700">₹${netPrice.toLocaleString('en-IN')} <span class="text-[10px] font-normal text-slate-500">Incl. GST</span></div>
+                    </div>
+                    
+                    ${!isCustomerSafeMode ? `
+                    <div class="text-right border-l pl-3 border-slate-200">
+                        <div class="text-[10px] text-slate-500">Cost: ₹${p.purchase || 0}</div>
+                        <div class="text-xs font-bold text-orange-600">Margin: ₹${marginAmt} (${marginPct}%)</div>
+                    </div>
+                    ` : `
+                    <div class="text-right">
+                        <span class="text-xs bg-slate-200/80 px-2 py-0.5 rounded-lg" title="Margin Locked">🔒</span>
+                    </div>
+                    `}
+                </div>
+
+                <!-- Stock Stepper & Actions -->
+                <div class="flex items-center justify-between pt-1">
+                    <div class="flex items-center space-x-1.5 bg-slate-100 px-2 py-1 rounded-lg">
+                        <span class="text-[11px] font-bold text-slate-600 mr-1">Stock:</span>
+                        <button onclick="adjustStock(${p.id}, -1)" class="w-6 h-6 bg-white hover:bg-slate-200 rounded text-xs font-bold shadow-sm">-</button>
+                        <span class="text-xs font-black px-1.5">${p.stock}</span>
+                        <button onclick="adjustStock(${p.id}, 1)" class="w-6 h-6 bg-white hover:bg-slate-200 rounded text-xs font-bold shadow-sm">+</button>
+                    </div>
+
+                    <div class="flex items-center space-x-1.5">
+                        <button onclick="addProdToQuote(${p.id})" class="px-3 py-1.5 bg-navy-900 hover:bg-navy-800 text-white rounded-lg text-xs font-bold shadow-sm">+ Quote</button>
+                        <button onclick="openEditProduct(${p.id})" class="p-1.5 hover:bg-slate-100 rounded text-xs">✏️</button>
+                        <button onclick="deleteProduct(${p.id})" class="p-1.5 hover:bg-red-50 text-red-600 rounded text-xs">🗑️</button>
+                    </div>
+                </div>
+            </div>`;
+        }
+
+        // Render Products Screen (STRICT ISOLATION: Active Company Only)
+        function renderProducts() {
+            const query = document.getElementById('search-input')?.value.toLowerCase() || '';
+            const container = document.getElementById('products-container');
+            if (!container) return;
+
+            const compProducts = getActiveCompanyProducts();
+
+            const filtered = compProducts.filter(p => {
+                const matchesSearch = p.name.toLowerCase().includes(query) || p.code.toLowerCase().includes(query) || (p.brand && p.brand.toLowerCase().includes(query)) || (p.category && p.category.toLowerCase().includes(query));
+                const matchesStock = selectedStockFilter === 'ALL' ||
+                    (selectedStockFilter === 'IN_STOCK' && p.stock > 2) ||
+                    (selectedStockFilter === 'LOW_STOCK' && p.stock > 0 && p.stock <= 2) ||
+                    (selectedStockFilter === 'OUT_OF_STOCK' && p.stock <= 0);
+                return matchesSearch && matchesStock;
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="col-span-full p-8 text-center bg-white rounded-2xl border border-slate-200 space-y-2">
+                        <div class="text-3xl">📦</div>
+                        <div class="font-bold text-slate-700">No products found in "${activeCompany}"</div>
+                        <p class="text-xs text-slate-400">${query ? 'Search filters ke anusaar koi product nahi mila.' : `Is brand (${activeCompany}) ka koi product nahi hai.`}</p>
+                        <button onclick="openAddProductModal()" class="mt-2 px-4 py-2 bg-navy-900 text-white text-xs font-bold rounded-xl shadow hover:bg-navy-800 transition">+ Add Item to ${activeCompany}</button>
+                    </div>
+                `;
+            } else {
+                container.innerHTML = filtered.map(p => renderProductCardHTML(p)).join('');
+            }
+        }
+
+        function filterStock(status) {
+            selectedStockFilter = status;
+            document.querySelectorAll('.stock-filter-chip').forEach(c => {
+                if (c.dataset.stock === status) {
+                    c.className = "stock-filter-chip active px-3 py-1 rounded-lg border font-semibold bg-navy-900 text-white border-navy-900";
+                } else {
+                    c.className = "stock-filter-chip px-3 py-1 rounded-lg border font-semibold bg-white text-slate-700 border-slate-300";
+                }
+            });
+            renderProducts();
+        }
+
+        // ============================================
+        // ⚡ QUICK COUNTER CALCULATOR LOGIC
+        // ============================================
+        function openQuickCalc() {
+            document.getElementById('quick-calc-modal').classList.remove('hidden');
+            runCalculator();
+        }
+
+        function closeQuickCalc() {
+            document.getElementById('quick-calc-modal').classList.add('hidden');
+        }
+
+        function setCalcDiscount(d) {
+            document.getElementById('calc-discount').value = d;
+            runCalculator();
+        }
+
+        function runCalculator() {
+            const mrp = parseFloat(document.getElementById('calc-mrp').value) || 0;
+            const disc = parseFloat(document.getElementById('calc-discount').value) || 0;
+            const qty = parseInt(document.getElementById('calc-qty').value) || 1;
+            const gst = parseFloat(document.getElementById('calc-gst').value) || 18;
+
+            const discAmtPerUnit = mrp * (disc / 100);
+            const taxablePerUnit = mrp - discAmtPerUnit;
+            const gstAmtPerUnit = taxablePerUnit * (gst / 100);
+            const finalRatePerUnit = taxablePerUnit + gstAmtPerUnit;
+            const totalFinal = Math.round(finalRatePerUnit * qty);
+
+            document.getElementById('calc-final-rate').innerText = '₹' + totalFinal.toLocaleString('en-IN');
+            document.getElementById('calc-breakdown').innerHTML = `
+                MRP: ₹${mrp * qty} | Disc (-${disc}%): -₹${Math.round(discAmtPerUnit * qty)} | Taxable: ₹${Math.round(taxablePerUnit * qty)} | GST (+${gst}%): +₹${Math.round(gstAmtPerUnit * qty)}
+            `;
+
+            // Safe Mode Guard for Calculator
+            const marginBox = document.getElementById('calc-margin-box');
+            if (isCustomerSafeMode) {
+                marginBox.classList.add('hidden');
+            } else {
+                marginBox.classList.remove('hidden');
+                marginBox.className = "p-3 rounded-xl border bg-slate-50 border-slate-200 text-xs space-y-1";
+                marginBox.innerHTML = `
+                    <div class="font-bold text-slate-700 flex justify-between">
+                        <span>Staff View (Internal Margin):</span>
+                        <span class="text-orange-600">Taxable Net: ₹${Math.round(taxablePerUnit * qty)}</span>
+                    </div>
+                    <div class="text-[11px] text-slate-500">Margin will be computed based on purchase rate.</div>
+                `;
+            }
+        }
+
+        function shareCalcWhatsApp() {
+            const mrp = parseFloat(document.getElementById('calc-mrp').value) || 0;
+            if (mrp <= 0) return alert('Pehle MRP enter karein!');
+            const name = document.getElementById('calc-item-name').value || 'Showroom Item';
+            const disc = parseFloat(document.getElementById('calc-discount').value) || 0;
+            const qty = parseInt(document.getElementById('calc-qty').value) || 1;
+            const gst = parseFloat(document.getElementById('calc-gst').value) || 18;
+
+            const taxable = (mrp * (1 - disc/100)) * qty;
+            const finalTotal = Math.round(taxable * (1 + gst/100));
+
+            const msg = `🏷️ *SHOWROOM ESTIMATE RATE*\nItem: *${name}*\nQty: ${qty} pcs\nMRP: ₹${mrp * qty}\nDiscount: ${disc}%\nTaxable: ₹${Math.round(taxable)}\nGST (${gst}%): Included\n━━━━━━━━━━━━━━━\n💰 *NET PAYABLE: ₹${finalTotal.toLocaleString('en-IN')}*\n_(All taxes included)_`;
+            window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank');
+        }
+
+        function addCalcToQuotation() {
+            const mrp = parseFloat(document.getElementById('calc-mrp').value) || 0;
+            if (mrp <= 0) return alert('Pehle MRP enter karein!');
+            const name = document.getElementById('calc-item-name').value || 'Counter Custom Item';
+            const disc = parseFloat(document.getElementById('calc-discount').value) || 0;
+            const qty = parseInt(document.getElementById('calc-qty').value) || 1;
+            const gst = parseFloat(document.getElementById('calc-gst').value) || 18;
+
+            quotationCart.push({
+                id: Date.now(),
+                name: name,
+                mrp: mrp,
+                discount: disc,
+                gst: gst,
+                quantity: qty
+            });
+            saveStorage();
+            updateQuoteBadge();
+            closeQuickCalc();
+            openQuotationModal();
+        }
+
+        // ============================================
+        // 🖨️ QUOTATION & PRINT / PDF LOGIC
+        // ============================================
+        function addProdToQuote(prodId) {
+            const p = products.find(x => x.id === prodId);
+            if (!p) return;
+            const existing = quotationCart.find(x => x.productId === prodId);
+            if (existing) {
+                existing.quantity += 1;
+            } else {
+                quotationCart.push({
+                    id: Date.now(),
+                    productId: p.id,
+                    name: p.name,
+                    brand: p.brand,
+                    code: p.code,
+                    mrp: p.mrp,
+                    discount: p.discount,
+                    gst: p.gst,
+                    quantity: 1,
+                    image: p.image || ''
+                });
+            }
+            saveStorage();
+            updateQuoteBadge();
+            openQuotationModal();
+        }
+
+        function updateQuoteBadge() {
+            const count = quotationCart.reduce((sum, item) => sum + item.quantity, 0);
+            const badge = document.getElementById('quote-badge');
+            if (count > 0) {
+                badge.innerText = count;
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+        }
+
+        function openQuotationModal() {
+            document.getElementById('quote-modal').classList.remove('hidden');
+            renderQuotationTable();
+        }
+
+        function closeQuotationModal() {
+            document.getElementById('quote-modal').classList.add('hidden');
+        }
+
+        function removeQuoteItem(index) {
+            quotationCart.splice(index, 1);
+            saveStorage();
+            updateQuoteBadge();
+            renderQuotationTable();
+        }
+
+        function renderQuotationTable() {
+            const tbody = document.getElementById('quote-items-body');
+            if (quotationCart.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" class="p-4 text-center text-slate-500">No items in quotation. Add from products or calculator!</td></tr>`;
+                document.getElementById('bill-mrp').innerText = '₹0';
+                document.getElementById('bill-discount').innerText = '-₹0';
+                document.getElementById('bill-taxable').innerText = '₹0';
+                document.getElementById('bill-gst').innerText = '+₹0';
+                document.getElementById('bill-grand-total').innerText = '₹0';
+                return;
+            }
+
+            let totalMrp = 0, totalTaxable = 0, totalGrand = 0;
+
+            tbody.innerHTML = quotationCart.map((item, idx) => {
+                const itemMrpTotal = item.mrp * item.quantity;
+                const discAmt = itemMrpTotal * (item.discount / 100);
+                const taxable = itemMrpTotal - discAmt;
+                const gstAmt = taxable * (item.gst / 100);
+                const itemTotal = Math.round(taxable + gstAmt);
+
+                totalMrp += itemMrpTotal;
+                totalTaxable += taxable;
+                totalGrand += itemTotal;
+
+                return `
+                <tr class="hover:bg-slate-50">
+                    <td class="p-2.5 font-bold">${idx + 1}</td>
+                    <td class="p-2.5">
+                        <div class="flex items-center space-x-2">
+                            ${item.image ? `<img src="${item.image}" alt="" class="w-8 h-8 rounded-lg object-cover border border-slate-200 shrink-0">` : ''}
+                            <div>
+                                <div class="font-bold text-navy-900 leading-tight">${item.name}</div>
+                                <div class="text-[10px] text-slate-400">${item.brand || ''} ${item.code ? '• ' + item.code : ''}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="p-2.5 text-center font-bold">${item.quantity}</td>
+                    <td class="p-2.5 text-right">₹${item.mrp}</td>
+                    <td class="p-2.5 text-center">${item.discount}%</td>
+                    <td class="p-2.5 text-right font-semibold">₹${Math.round(itemTotal / item.quantity)}</td>
+                    <td class="p-2.5 text-right font-bold text-emerald-700">₹${itemTotal.toLocaleString('en-IN')}</td>
+                    <td class="p-2.5 text-center">
+                        <button onclick="removeQuoteItem(${idx})" class="text-red-500 font-bold hover:bg-red-50 p-1 rounded">✕</button>
+                    </td>
+                </tr>`;
+            }).join('');
+
+            const totalDiscount = totalMrp - totalTaxable;
+            const totalGst = totalGrand - totalTaxable;
+
+            document.getElementById('bill-mrp').innerText = '₹' + Math.round(totalMrp).toLocaleString('en-IN');
+            document.getElementById('bill-discount').innerText = '-₹' + Math.round(totalDiscount).toLocaleString('en-IN');
+            document.getElementById('bill-taxable').innerText = '₹' + Math.round(totalTaxable).toLocaleString('en-IN');
+            document.getElementById('bill-gst').innerText = '+₹' + Math.round(totalGst).toLocaleString('en-IN');
+            document.getElementById('bill-grand-total').innerText = '₹' + Math.round(totalGrand).toLocaleString('en-IN');
+        }
+
+        // Print A4 / Thermal Receipt
+        function printQuotation() {
+            const customerName = document.getElementById('quote-customer-name').value || 'Cash Customer';
+            const customerPhone = document.getElementById('quote-customer-phone').value || '';
+            const printDiv = document.getElementById('printable-invoice');
+
+            let totalMrp = 0, totalTaxable = 0, totalGrand = 0;
+            const itemsRows = quotationCart.map((item, idx) => {
+                const itemMrpTotal = item.mrp * item.quantity;
+                const discAmt = itemMrpTotal * (item.discount / 100);
+                const taxable = itemMrpTotal - discAmt;
+                const itemTotal = Math.round(taxable * (1 + item.gst / 100));
+
+                totalMrp += itemMrpTotal;
+                totalTaxable += taxable;
+                totalGrand += itemTotal;
+
+                return `
+                <tr style="border-bottom: 1px solid #e2e8f0;">
+                    <td style="padding: 8px;">${idx + 1}</td>
+                    <td style="padding: 8px;"><strong>${item.name}</strong><br><small style="color: #64748b;">${item.brand || ''} • GST: ${item.gst}%</small></td>
+                    <td style="padding: 8px; text-align: center;"><strong>${item.quantity}</strong></td>
+                    <td style="padding: 8px; text-align: right;">₹${item.mrp}</td>
+                    <td style="padding: 8px; text-align: center;">${item.discount}%</td>
+                    <td style="padding: 8px; text-align: right;"><strong>₹${itemTotal.toLocaleString('en-IN')}</strong></td>
+                </tr>`;
+            }).join('');
+
+            printDiv.innerHTML = `
+            <div style="font-family: sans-serif; color: #0f172a; padding: 20px; border: 1px solid #cbd5e1; border-radius: 8px;">
+                <div style="display: flex; justify-content: space-between; border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 14px;">
+                    <div>
+                        <h2 style="margin: 0; font-size: 20px; font-weight: 800;">SHOWROOM PRODUCT MANAGER</h2>
+                        <div style="font-size: 11px; color: #475569;">Commercial Center, Main Market Road</div>
+                        <div style="font-size: 11px; color: #475569;">Phone: +91 98765 43210 • GSTIN: 27AAAAA0000A1Z5</div>
+                    </div>
+                    <div style="text-align: right;">
+                        <span style="background: #0f172a; color: #fff; padding: 4px 10px; font-weight: bold; border-radius: 4px; font-size: 11px;">TAX INVOICE / ESTIMATE</span>
+                        <div style="font-size: 11px; margin-top: 5px;">Date: ${new Date().toLocaleDateString('en-IN')}</div>
+                    </div>
+                </div>
+
+                <div style="background: #f8fafc; padding: 10px; border-radius: 6px; margin-bottom: 14px; font-size: 12px;">
+                    <strong>Billed To:</strong> ${customerName} ${customerPhone ? ' | Phone: ' + customerPhone : ''}
+                </div>
+
+                <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 16px;">
+                    <thead>
+                        <tr style="background: #0f172a; color: white;">
+                            <th style="padding: 8px; text-align: left;">#</th>
+                            <th style="padding: 8px; text-align: left;">Item Description</th>
+                            <th style="padding: 8px; text-align: center;">Qty</th>
+                            <th style="padding: 8px; text-align: right;">MRP</th>
+                            <th style="padding: 8px; text-align: center;">Disc</th>
+                            <th style="padding: 8px; text-align: right;">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>${itemsRows}</tbody>
+                </table>
+
+                <div style="display: flex; justify-content: flex-end;">
+                    <table style="width: 250px; font-size: 12px;">
+                        <tr><td>Total MRP:</td><td style="text-align: right;">₹${Math.round(totalMrp).toLocaleString('en-IN')}</td></tr>
+                        <tr><td style="color: #dc2626;">Discount:</td><td style="text-align: right; color: #dc2626;">-₹${Math.round(totalMrp - totalTaxable).toLocaleString('en-IN')}</td></tr>
+                        <tr><td>Taxable:</td><td style="text-align: right;">₹${Math.round(totalTaxable).toLocaleString('en-IN')}</td></tr>
+                        <tr><td>GST Total:</td><td style="text-align: right;">+₹${Math.round(totalGrand - totalTaxable).toLocaleString('en-IN')}</td></tr>
+                        <tr style="font-weight: 800; font-size: 15px; border-top: 2px solid #0f172a; color: #16a34a;">
+                            <td>NET PAYABLE:</td>
+                            <td style="text-align: right;">₹${Math.round(totalGrand).toLocaleString('en-IN')}</td>
+                        </tr>
+                    </table>
+                </div>
+
+                <div style="margin-top: 30px; font-size: 10px; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 8px;">
+                    Thank you for your business! All goods remain seller's property until paid in full.
+                </div>
+            </div>`;
+
+            printDiv.classList.remove('hidden');
+            window.print();
+            printDiv.classList.add('hidden');
+        }
+
+        function shareQuotationWhatsApp() {
+            const customerName = document.getElementById('quote-customer-name').value || 'Customer';
+            let grandTotal = 0;
+            const itemsText = quotationCart.map((it, idx) => {
+                const total = Math.round((it.mrp * (1 - it.discount/100) * (1 + it.gst/100)) * it.quantity);
+                grandTotal += total;
+                return `${idx + 1}. *${it.name}* (${it.quantity} pcs) - ₹${total.toLocaleString('en-IN')}`;
+            }).join('\n');
+
+            const msg = `🧾 *SHOWROOM ESTIMATE BILL*\nCustomer: *${customerName}*\nDate: ${new Date().toLocaleDateString('en-IN')}\n\n*ITEMS:*\n${itemsText}\n━━━━━━━━━━━━━━━\n💰 *NET GRAND TOTAL: ₹${grandTotal.toLocaleString('en-IN')}*\n_(All taxes included)_\n\nThank you!`;
+            window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank');
+        }
+
+        // Modal Purchase Cost Reveal / Hide Handler
+        function revealModalPurchasePrice() {
+            if (isCustomerSafeMode) {
+                const entered = prompt("Owner PIN:");
+                if (entered === null) return;
+                if (entered.trim() === ownerPin) {
+                    document.getElementById('modal-purchase-locked').classList.add('hidden');
+                    document.getElementById('modal-purchase-unlocked').classList.remove('hidden');
+                    document.getElementById('prod-purchase').focus();
+                } else {
+                    alert("❌ Galat Owner PIN!");
+                }
+            } else {
+                document.getElementById('modal-purchase-locked').classList.add('hidden');
+                document.getElementById('modal-purchase-unlocked').classList.remove('hidden');
+                document.getElementById('prod-purchase').focus();
+            }
+        }
+
+        function hideModalPurchasePrice() {
+            const locked = document.getElementById('modal-purchase-locked');
+            const unlocked = document.getElementById('modal-purchase-unlocked');
+            if (locked) locked.classList.remove('hidden');
+            if (unlocked) unlocked.classList.add('hidden');
+        }
+
+        // Add/Edit Product Modal
+        function openAddProductModal() {
+            document.getElementById('prod-id').value = '';
+            document.getElementById('prod-code').value = '';
+            document.getElementById('prod-name').value = '';
+            document.getElementById('prod-brand').value = activeCompany;
+            document.getElementById('prod-cat').value = 'General';
+            document.getElementById('prod-mrp').value = '';
+            document.getElementById('prod-disc').value = '25';
+            document.getElementById('prod-gst').value = '18';
+            document.getElementById('prod-stock').value = '5';
+            document.getElementById('prod-purchase').value = '';
+            setProductImagePreview(''); // Reset photo preview
+            hideModalPurchasePrice(); // Purchase cost is completely hidden until eye is clicked
+            document.getElementById('product-modal-title').innerText = `Add New Product (${activeCompany})`;
+            document.getElementById('product-modal').classList.remove('hidden');
+        }
+
+        function openEditProduct(id) {
+            const p = products.find(x => x.id === id);
+            if (!p) return;
+            document.getElementById('prod-id').value = p.id;
+            document.getElementById('prod-code').value = p.code;
+            document.getElementById('prod-name').value = p.name;
+            document.getElementById('prod-brand').value = p.company || p.brand;
+            document.getElementById('prod-cat').value = p.category;
+            document.getElementById('prod-mrp').value = p.mrp;
+            document.getElementById('prod-disc').value = p.discount;
+            document.getElementById('prod-gst').value = p.gst;
+            document.getElementById('prod-stock').value = p.stock;
+            document.getElementById('prod-purchase').value = p.purchase || '';
+            setProductImagePreview(p.image || ''); // Load existing photo
+            hideModalPurchasePrice(); // Purchase cost is completely hidden until eye is clicked
+            document.getElementById('product-modal-title').innerText = `Edit Product (${p.company || p.brand})`;
+            document.getElementById('product-modal').classList.remove('hidden');
+        }
+
+        function closeProductModal() {
+            hideModalPurchasePrice();
+            document.getElementById('product-modal').classList.add('hidden');
+        }
+
+        function saveProductForm(e) {
+            e.preventDefault();
+            const id = document.getElementById('prod-id').value;
+            const code = document.getElementById('prod-code').value.trim();
+            const name = document.getElementById('prod-name').value.trim();
+            const brand = document.getElementById('prod-brand').value.trim() || activeCompany;
+            const cat = document.getElementById('prod-cat').value.trim() || 'General';
+            const mrp = parseFloat(document.getElementById('prod-mrp').value) || 0;
+            const disc = parseFloat(document.getElementById('prod-disc').value) || 0;
+            const gst = parseFloat(document.getElementById('prod-gst').value) || 18;
+            const stock = parseInt(document.getElementById('prod-stock').value) || 0;
+            const purchase = parseFloat(document.getElementById('prod-purchase').value) || 0;
+            const image = document.getElementById('prod-image').value || '';
+
+            // Make sure company exists in companies list
+            if (!companies.some(c => c.name.trim().toLowerCase() === brand.toLowerCase())) {
+                companies.push({ id: Date.now(), name: brand, desc: `${brand} Catalog` });
+                populateCompanySelectors();
+            }
+
+            if (id) {
+                const p = products.find(x => x.id === parseInt(id));
+                if (p) Object.assign(p, { code, name, brand, company: brand, category: cat, mrp, discount: disc, gst, stock, purchase, image });
+            } else {
+                products.push({ id: Date.now(), company: brand, code, name, brand, category: cat, mrp, discount: disc, gst, stock, purchase, image });
+            }
+            saveStorage();
+            closeProductModal();
+            renderProducts();
+            renderDashboard();
+            renderCompaniesList();
+        }
+
+        function deleteProduct(id) {
+            if (confirm('Kya aap is item ko delete karna chahte hain?')) {
+                products = products.filter(x => x.id !== id);
+                saveStorage();
+                renderProducts();
+                renderDashboard();
+                renderCompaniesList();
+            }
+        }
+
+        // Export CSV (Active Company Catalog)
+        function exportCSV() {
+            const compProducts = getActiveCompanyProducts();
+            let csv = "Company,Code,Name,Brand,Category,MRP,Discount%,GST%,FinalPrice,Stock\n";
+            compProducts.forEach(p => {
+                const final = Math.round(p.mrp * (1 - p.discount/100) * (1 + p.gst/100));
+                csv += `"${p.company || p.brand}","${p.code}","${p.name}","${p.brand}","${p.category}",${p.mrp},${p.discount},${p.gst},${final},${p.stock}\n`;
+            });
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.setAttribute('href', url);
+            a.setAttribute('download', `${activeCompany}_Catalog_${new Date().toISOString().slice(0,10)}.csv`);
+            a.click();
+        }
+
+        function resetDemoData() {
+            if (confirm('Reset to initial demo catalog with Jaquar, Cera & Astral?')) {
+                products = [...defaultProducts];
+                companies = [...defaultCompanies];
+                activeCompany = 'Jaquar';
+                saveStorage();
+                populateCompanySelectors();
+                renderCompaniesList();
+                renderProducts();
+                renderDashboard();
+            }
+        }
+
+        // Initialize App
+        populateCompanySelectors();
+        renderCompaniesList();
+        updateSafeModeUI();
+        renderDashboard();
+        renderProducts();
+    </script>
+</body>
+</html>
