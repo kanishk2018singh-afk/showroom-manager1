@@ -7,6 +7,7 @@ export type DocType =
   | 'DELIVERY_CHALLAN'
   | 'BILL_OF_SUPPLY'
   | 'CREDIT_NOTE'
+  | 'PURCHASE'
 
 export interface DocMeta {
   key: DocType
@@ -24,6 +25,8 @@ export interface DocMeta {
   noTax: boolean
   /** Amount is subtracted in party balance / sales */
   negative: boolean
+  /** Supplier bill — stock IN and payable to the supplier */
+  isPurchase: boolean
   color: string
 }
 
@@ -39,6 +42,7 @@ export const DOC_TYPES: DocMeta[] = [
     stockIn: false,
     noTax: false,
     negative: false,
+    isPurchase: false,
     color: 'bg-brand-600',
   },
   {
@@ -52,6 +56,7 @@ export const DOC_TYPES: DocMeta[] = [
     stockIn: false,
     noTax: false,
     negative: false,
+    isPurchase: false,
     color: 'bg-indigo-500',
   },
   {
@@ -65,6 +70,7 @@ export const DOC_TYPES: DocMeta[] = [
     stockIn: false,
     noTax: false,
     negative: false,
+    isPurchase: false,
     color: 'bg-sky-600',
   },
   {
@@ -78,6 +84,7 @@ export const DOC_TYPES: DocMeta[] = [
     stockIn: false,
     noTax: false,
     negative: false,
+    isPurchase: false,
     color: 'bg-teal-600',
   },
   {
@@ -91,6 +98,7 @@ export const DOC_TYPES: DocMeta[] = [
     stockIn: false,
     noTax: true,
     negative: false,
+    isPurchase: false,
     color: 'bg-slate-700',
   },
   {
@@ -104,7 +112,22 @@ export const DOC_TYPES: DocMeta[] = [
     stockIn: true,
     noTax: false,
     negative: true,
+    isPurchase: false,
     color: 'bg-rose-600',
+  },
+  {
+    key: 'PURCHASE',
+    label: 'Purchase Bill',
+    hi: 'खरीद बिल (supplier)',
+    icon: '📥',
+    prefix: 'PUR',
+    isSale: false,
+    stockOut: false,
+    stockIn: true,
+    noTax: false,
+    negative: false,
+    isPurchase: true,
+    color: 'bg-emerald-700',
   },
 ]
 
@@ -339,3 +362,56 @@ export const stateName = (code?: string): string =>
 
 export const UNITS = ['PCS', 'NOS', 'SET', 'BOX', 'KG', 'MTR', 'LTR', 'SQFT', 'PKT', 'BAG', 'BUNDLE', 'PAIR']
 export const GST_RATES = [0, 5, 12, 18, 28]
+
+// ---------- Khata / payments / expenses ----------
+
+export type PaymentDirection = 'IN' | 'OUT'
+
+/** Standalone party payment (advance / on-account / supplier payment) */
+export interface PartyPayment {
+  id?: number
+  date: string
+  /** IN = paisa aaya (customer se), OUT = paisa diya (supplier ko) */
+  direction: PaymentDirection
+  partyId?: number
+  partyName: string
+  amount: number
+  mode: PaymentMode
+  note?: string
+  createdAt: number
+}
+
+export interface Expense {
+  id?: number
+  date: string
+  category: string
+  amount: number
+  mode: PaymentMode
+  paidTo?: string
+  note?: string
+  createdAt: number
+}
+
+export const EXPENSE_CATEGORIES: { key: string; label: string; icon: string }[] = [
+  { key: 'Rent', label: 'Dukan ka kiraya', icon: '🏠' },
+  { key: 'Salary', label: 'Staff / salary', icon: '👷' },
+  { key: 'Bijli/Mobile', label: 'Bijli, mobile, internet', icon: '💡' },
+  { key: 'Transport', label: 'Transport / bhada', icon: '🚚' },
+  { key: 'Packing', label: 'Packing material', icon: '📦' },
+  { key: 'Marketing', label: 'Marketing / banner', icon: '📣' },
+  { key: 'Repair', label: 'Repair / maintenance', icon: '🔧' },
+  { key: 'Tea/Other', label: 'Chai-paani, misc', icon: '☕' },
+  { key: 'Other', label: 'Other kharcha', icon: '🧾' },
+]
+
+export interface AgingBucket {
+  partyId?: number
+  partyName: string
+  phone?: string
+  d0_30: number
+  d31_60: number
+  d61_90: number
+  d90plus: number
+  total: number
+  oldestDays: number
+}

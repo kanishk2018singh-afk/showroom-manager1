@@ -29,20 +29,46 @@ native app की तरह install किया जा सकता है।
 - Stock खुद कट जाता है bill पर (cancel/credit note पर वापस जुड़ जाता है)
 - **CSV import/export** (Excel) — Android app की पुरानी CSV file भी चलती है; template भी download हो सकता है
 
+### 📥 Purchase (supplier se maal)
+- **Purchase Bill** — supplier का bill अपनी दुकान के नाम से लिखें, **stock अपने आप बढ़ता है**
+- GST उसी तरह लगता है (intra-state → CGST/SGST, दूसरे state का supplier → IGST)
+- Supplier का **payable** अपने आप बनता है; आधा/पूरा payment दर्ज करें
+- Purchase rate से item का **cost (purchase price) update** कर सकते हैं
+- अपना bill number series: `PUR/25-26/001`
+
 ### 👥 Khata / Parties
 - Customer & Supplier list, **किसका कितना बाकी है** (udhaar khata)
+- Customer: *lena hai* / *advance jama*; Supplier: *dena hai* / *advance diya*
 - Ledger — party के सारे bills, total business, paid, बाकी
-- **WhatsApp payment reminder** एक tap में
+- **WhatsApp payment reminder** एक tap में (customer को माँगने, supplier को हिसाब clear करने)
 - Opening balance (पुराना बकाया) support
 
+### 💸 Payments In / Out (रोज़ का cash register)
+- Seedha **payment entry** — customer से पैसा आया या supplier को दिया
+- किसी **bill के against** लिखें (उस bill का "बाकी" भी update हो जाएगा) या **on-account / advance**
+- Mode: Cash, UPI, Card, Bank, Cheque + note (UPI ref/cheque no.)
+- Period filter (आज / 7 दिन / महीना / FY / custom), **mode-wise total**, entry delete
+- Register में bill-wise और khata-wise — दोनों payments एक जगह
+
+### 🧾 Expenses (दुकान का खर्चा)
+- 9 ready categories: kiraya, staff/salary, बिजली-मोबाइल, transport, packing, marketing, repair, chai-paani, other
+- Category-wise **bar chart**, mode-wise summary, period filter, CSV export
+- **Net profit = sale profit − kharcha** (Reports में दिखता है)
+
 ### 📊 Reports
-- Net sale, taxable value, GST collected, discount दिया, अनुमानित **profit**, bill count, avg bill
-- **Din-wise sale chart**, top items, top parties, payment-mode summary, document-type summary
+- Net sale, taxable value, GST collected, discount, gross profit, **purchase total** aur **kharcha**
+- **Net profit** (sale profit − kharcha) — asli kamai ka andaza
+- **Din-wise sale chart** aur **mahine-wise sale vs purchase** chart
+- Top items, top parties, payment-mode summary, document-type summary
+- **Udhaar Aging report** — 0–30, 31–60, 61–90, 90+ दिन (lena hai / dena hai), on-account payments adjust hoke; CSV export
+- **Day book** — किसी भी दिन का पूरा हिसाब: bills + payments + kharcha, CSV export
 - **GST / HSN summary** (GSTR-1 जैसा) — CGST/SGST breakdown
 - Stock value report + low-stock list
-- सब reports **CSV export** (sales register, GST summary, item-wise, party-wise)
+- सब reports **CSV export** (sales register, GST summary, item-wise, party-wise, aging, day book)
 
-### ⚙️ Settings
+### ☰ More (ek hi jagah se sab)
+- Koi bhi document banayein (7 types), khata, payments, expenses, reports, settings — sab ek tap par
+- Receivable / payable / mahine ki sale / low stock — ek nazar me
 - दुकान की details (नाम, address, phone, GSTIN, state, UPI ID, bank) + **logo & signature upload**
 - Per-document number series, default terms & conditions
 - **Backup / restore** (JSON file) + full data reset
@@ -88,16 +114,22 @@ Poore billing flow ka automated test hai (jsdom + fake IndexedDB) — isi se dat
 npm run smoke
 ```
 
-Ye 46 checks chalata hai: invoice maths (GST/CGST/SGST/IGST, bill discount, round off), number series,
-stock cut/restore, payment recording, khata balance, credit note, CSV import/export, backup-restore,
-aur UI flow (home → items → reports → billing → item add → save → invoice view → print → UPI QR → payment).
+Ye **72 checks** chalata hai: invoice maths (GST/CGST/SGST/IGST, bill discount, round off), number series,
+stock cut/restore, payment recording, khata balance, credit note, **purchase bill (stock IN + payable)**,
+**payments in/out register**, **expenses**, **udhaar aging**, CSV import/export, backup-restore,
+aur UI flow (home → items → reports → billing → item add → save → invoice view → print → UPI QR → payment →
+More → payments → expenses → reports → purchase bill).
 
 ## 🧱 Tech
 Vite + React 19 + TypeScript + Tailwind CSS 4 + Dexie (IndexedDB) + vite-plugin-pwa + qrcode.react + html2canvas-pro
 
 ```
 src/
-  lib/        types, db (Dexie), repo (billing logic), calc (GST maths), format, doc, csv, print
+  lib/        types, db (Dexie), repo (billing + khata + purchase + expenses + aging), calc (GST maths), format, doc, csv, print
   components/ UI primitives, InvoicePaper (A4 + thermal), BarcodeScanner, pickers
-  screens/    Home, Billing, InvoiceView, Invoices, Items, Parties, Reports, Settings, Onboarding
+  screens/    Home, Billing, InvoiceView, Invoices, Items, Parties, Payments, Expenses, Reports, More, Settings, Onboarding
 ```
+
+## 🗄️ Database versions
+- **v1** — business, items, parties, invoices, docSettings, appSettings
+- **v2** — payments (khata in/out), expenses (migrate apne aap hota hai, data safe rehta hai)

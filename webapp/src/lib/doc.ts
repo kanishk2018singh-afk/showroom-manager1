@@ -28,6 +28,7 @@ export const shortDocName = (docType: DocType): string =>
     DELIVERY_CHALLAN: 'Challan',
     BILL_OF_SUPPLY: 'Bill of Supply',
     CREDIT_NOTE: 'Credit Note',
+    PURCHASE: 'Purchase',
   })[docType]
 
 /** WhatsApp / SMS friendly bill message */

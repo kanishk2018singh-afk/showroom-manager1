@@ -80,6 +80,7 @@ export function InvoiceView({
   }
 
   const meta = docMeta(invoice.docType)
+  const isPurchase = meta.isPurchase
   const st = statusMeta(payStatus(t))
   const text = invoiceText(invoice, business, t)
   const base = fileBaseName(invoice, business)
@@ -123,6 +124,7 @@ export function InvoiceView({
             <div className="min-w-0">
               <div className="truncate text-sm font-bold text-slate-900">{invoice.partyName || 'Cash Sale'}</div>
               <div className="truncate text-[11px] text-slate-500">
+                {isPurchase ? '🏭 Supplier • ' : ''}
                 {invoice.partyPhone || 'no mobile'} {invoice.partyGstin ? `• ${invoice.partyGstin}` : ''}
               </div>
             </div>
@@ -138,7 +140,9 @@ export function InvoiceView({
               <div className="num text-sm font-extrabold text-money">{money(t.paid)}</div>
             </div>
             <div className={`rounded-xl py-2 ${t.due > 0.5 ? 'bg-due-soft' : 'bg-slate-50'}`}>
-              <div className={`text-[10px] font-bold uppercase ${t.due > 0.5 ? 'text-due' : 'text-slate-500'}`}>Baki</div>
+              <div className={`text-[10px] font-bold uppercase ${t.due > 0.5 ? 'text-due' : 'text-slate-500'}`}>
+                {isPurchase ? 'Dena hai' : 'Baki'}
+              </div>
               <div className={`num text-sm font-extrabold ${t.due > 0.5 ? 'text-due' : 'text-slate-600'}`}>{money(t.due)}</div>
             </div>
           </div>
@@ -171,14 +175,16 @@ export function InvoiceView({
           >
             📋 Copy bill text
           </button>
-          {t.due > 0.5 && business.upiId ? (
+          {t.due > 0.5 && business.upiId && !isPurchase ? (
             <button className="btn btn-outline col-span-2" onClick={() => setQrOpen(true)}>
               📱 UPI QR dikhayein — {money(t.due)} lena hai
             </button>
           ) : null}
           {t.due > 0.5 ? (
             <button className="btn btn-dark col-span-2" onClick={() => setPayOpen(true)}>
-              💰 Payment receive karein (baaki {money(t.due)})
+              {isPurchase
+                ? `📤 Supplier ko payment karein (baaki ${money(t.due)})`
+                : `💰 Payment receive karein (baaki ${money(t.due)})`}
             </button>
           ) : null}
         </div>
@@ -205,7 +211,9 @@ export function InvoiceView({
         {/* Payment history */}
         {invoice.payments.length ? (
           <div className="card mt-3">
-            <div className="text-[13px] font-bold text-slate-700">Payment history</div>
+            <div className="text-[13px] font-bold text-slate-700">
+              {isPurchase ? 'Supplier ko kiye payment' : 'Payment history'}
+            </div>
             <div className="mt-1">
               {invoice.payments.map((p) => (
                 <div key={p.id} className="flex items-center justify-between border-b border-slate-100 py-2 text-[13px] last:border-0">
@@ -256,6 +264,7 @@ export function InvoiceView({
       <PaymentSheet
         open={payOpen}
         due={t.due}
+        isPurchase={isPurchase}
         onClose={() => setPayOpen(false)}
         onSave={async (amount, payMode, date, note) => {
           await recordPayment(invoice.id!, { amount, mode: payMode, date, note })
@@ -326,7 +335,7 @@ export function InvoiceView({
               📞 {invoice.partyPhone} par call
             </a>
           ) : null}
-          {invoice.docType !== 'TAX_INVOICE' ? (
+          {['ESTIMATE', 'PROFORMA', 'DELIVERY_CHALLAN'].includes(invoice.docType) ? (
             <button
               className="btn btn-dark btn-block"
               onClick={async () => {
@@ -449,11 +458,13 @@ async function convertFor(inv: Invoice): Promise<Invoice> {
 function PaymentSheet({
   open,
   due,
+  isPurchase = false,
   onClose,
   onSave,
 }: {
   open: boolean
   due: number
+  isPurchase?: boolean
   onClose: () => void
   onSave: (amount: number, mode: PaymentMode, date: string, note: string) => Promise<void>
 }) {
@@ -475,8 +486,8 @@ function PaymentSheet({
     <Sheet
       open={open}
       onClose={onClose}
-      title="Payment receive karein"
-      subtitle={`Baaki: ${money(due)}`}
+      title={isPurchase ? 'Supplier ko payment' : 'Payment receive karein'}
+      subtitle={isPurchase ? `Dena baaki: ${money(due)}` : `Baaki: ${money(due)}`}
       footer={
         <button
           className="btn btn-money btn-block"
@@ -492,7 +503,7 @@ function PaymentSheet({
             setBusy(false)
           }}
         >
-          ✅ Payment save karein
+          {isPurchase ? '✅ Payment save karein (Out)' : '✅ Payment save karein'}
         </button>
       }
     >

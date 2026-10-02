@@ -73,6 +73,8 @@ export function BillingScreen({
 
   const patch = (p: Partial<Invoice>) => setInv((prev) => ({ ...prev, ...p }))
 
+  const isPurchase = inv.docType === 'PURCHASE'
+
   const addItem = (item: Item, qty = 1) => {
     setInv((prev) => {
       const existing = prev.items.find((l) => l.itemId === item.id)
@@ -82,21 +84,37 @@ export function BillingScreen({
           items: prev.items.map((l) => (l.id === existing.id ? { ...l, qty: round2(l.qty + qty) } : l)),
         }
       }
-      const line: LineItem = {
-        id: uid(),
-        itemId: item.id,
-        name: item.name,
-        code: item.code,
-        barcode: item.barcode,
-        brand: item.brand,
-        hsn: item.hsn,
-        unit: item.unit,
-        qty,
-        rate: item.mrp,
-        discountPercent: item.discountPercent,
-        gstPercent: item.gstPercent,
-        costPrice: item.purchasePrice,
-      }
+      const line: LineItem = isPurchase
+        ? {
+            id: uid(),
+            itemId: item.id,
+            name: item.name,
+            code: item.code,
+            barcode: item.barcode,
+            brand: item.brand,
+            hsn: item.hsn,
+            unit: item.unit,
+            qty,
+            rate: item.purchasePrice || item.mrp,
+            discountPercent: 0,
+            gstPercent: item.gstPercent,
+            costPrice: item.purchasePrice,
+          }
+        : {
+            id: uid(),
+            itemId: item.id,
+            name: item.name,
+            code: item.code,
+            barcode: item.barcode,
+            brand: item.brand,
+            hsn: item.hsn,
+            unit: item.unit,
+            qty,
+            rate: item.mrp,
+            discountPercent: item.discountPercent,
+            gstPercent: item.gstPercent,
+            costPrice: item.purchasePrice,
+          }
       return { ...prev, items: [...prev.items, line] }
     })
     toast(`${item.name.slice(0, 26)} add ho gaya`, 'success')
@@ -257,14 +275,14 @@ export function BillingScreen({
 
         {/* Party */}
         <button className="card mt-3 flex w-full items-center gap-3 text-left" onClick={() => setPartyOpen(true)}>
-          <div className="grid h-10 w-10 place-items-center rounded-full bg-brand-100 text-lg">👤</div>
+          <div className="grid h-10 w-10 place-items-center rounded-full bg-brand-100 text-lg">{isPurchase ? '🏭' : '👤'}</div>
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-bold text-slate-900">
-              {inv.partyName || 'Cash Sale / Walk-in Customer'}
+              {inv.partyName || (isPurchase ? 'Supplier chunein' : 'Cash Sale / Walk-in Customer')}
             </div>
             <div className="truncate text-[11px] text-slate-500">
               {inv.partyPhone ? `${inv.partyPhone} • ` : ''}
-              {meta.isSale ? 'Tap karke party chunein ya naya jodein' : 'Category: Internal / Other'}
+              {isPurchase ? 'Supplier bill — stock badhega, payable banega' : 'Tap karke party chunein ya naya jodein'}
             </div>
           </div>
           <span className="text-slate-400">›</span>
@@ -373,12 +391,12 @@ export function BillingScreen({
               Half
             </button>
             <button className="chip" onClick={() => setPaidInput('0')}>
-              Udhaar (credit)
+              {isPurchase ? 'Udhaar (payable)' : 'Udhaar (credit)'}
             </button>
           </div>
           <div className="mt-2 grid grid-cols-2 gap-2">
             <div className="field">
-              <label className="label">Received (₹)</label>
+              <label className="label">{isPurchase ? 'Paid to supplier (₹)' : 'Received (₹)'}</label>
               <input
                 className="input input-lg"
                 inputMode="decimal"
@@ -399,7 +417,7 @@ export function BillingScreen({
             </div>
           </div>
           <div className="num mt-2 flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2 text-[13px] font-bold">
-            <span className="text-slate-600">Baki (due)</span>
+            <span className="text-slate-600">{isPurchase ? 'Supplier ko dena baki' : 'Baki (due)'}</span>
             <span className={t.grandTotal - paidAmount > 0.5 ? 'text-due' : 'text-money'}>
               {money(Math.max(0, round2(t.grandTotal - paidAmount)))}
             </span>
@@ -439,6 +457,8 @@ export function BillingScreen({
       <ItemPickerSheet
         open={pickerOpen}
         onClose={() => setPickerOpen(false)}
+        title={isPurchase ? 'Purchase item chunein' : 'Item chunein'}
+        showPurchaseRate={isPurchase}
         onPick={(item) => addItem(item)}
         onQuickAdd={(name, rate) => addCustomLine(name, rate)}
       />
@@ -446,6 +466,7 @@ export function BillingScreen({
         open={partyOpen}
         onClose={() => setPartyOpen(false)}
         shopStateCode={business.stateCode}
+        partyType={isPurchase ? 'SUPPLIER' : 'ALL'}
         onPick={(p: Party | null) => {
           if (!p) {
             patch({ partyId: undefined, partyName: '', partyPhone: '', partyGstin: '', partyAddress: '', placeOfSupply: '' })

@@ -138,7 +138,7 @@ export function InvoicesScreen({
       <div className="mt-2 grid grid-cols-3 gap-2">
         <StatBox label="Bills" value={num(filtered.length, 0)} sub={`${fmtDate(from)} – ${fmtDate(to)}`} />
         <StatBox label="Sale" value={money(totals.sale)} tone="money" />
-        <StatBox label="Baki" value={money(totals.due)} tone="due" />
+        <StatBox label="Baki (lena)" value={money(totals.due)} tone="due" />
       </div>
 
       <div className="mt-2 flex items-center justify-between">

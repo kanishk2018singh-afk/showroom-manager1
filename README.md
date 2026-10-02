@@ -8,7 +8,7 @@ Do hisse hain is repo me:
 
 | Folder | Kya hai | Kaise chalayein |
 | --- | --- | --- |
-| `webapp/` | **MyBillBook जैसी Billing app (Web/PWA)** — GST invoice, estimate, challan, credit note, barcode billing, udhaar khata, reports, UPI QR, WhatsApp bill, print (A4 + thermal) | `cd webapp && npm install && npm run dev` |
+| `webapp/` | **MyBillBook जैसी Billing app (Web/PWA)** — GST invoice, estimate, challan, credit note, **purchase bill**, barcode billing, udhaar khata, **payments in/out**, **expenses**, **aging + day book reports**, UPI QR, WhatsApp bill, print (A4 + thermal) | `cd webapp && npm install && npm run dev` |
 | `app/` | Purani Android app (Kotlin + Compose) — product catalogue, pricing, AI studio | Android Studio, ya GitHub Actions se APK |
 | `web/` | Purana single-file web catalogue demo (`web/index.html`) | browser me khol lein |
 

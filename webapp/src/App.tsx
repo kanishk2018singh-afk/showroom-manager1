@@ -1,15 +1,18 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { db, getBusiness } from './lib/db'
 import { newInvoice } from './lib/repo'
 import { fmtDate, todayISO } from './lib/format'
 import type { Business, DocType, Invoice } from './lib/types'
-import { Toaster, Fab, toast } from './components/ui'
+import { Toaster, toast } from './components/ui'
 import { HomeScreen } from './screens/Home'
 import { ItemsScreen } from './screens/Items'
 import { InvoicesScreen } from './screens/Invoices'
 import { ReportsScreen } from './screens/Reports'
 import { SettingsScreen } from './screens/Settings'
 import { PartiesScreen } from './screens/Parties'
+import { PaymentsScreen } from './screens/Payments'
+import { ExpensesScreen } from './screens/Expenses'
+import { MoreScreen, type MoreTarget } from './screens/More'
 import { BillingScreen } from './screens/Billing'
 import { InvoiceView } from './screens/InvoiceView'
 import { Onboarding } from './screens/Onboarding'
@@ -19,13 +22,16 @@ type SubRoute =
   | { name: 'billing'; draft: Invoice }
   | { name: 'view'; id: number }
   | { name: 'parties' }
+  | { name: 'payments' }
+  | { name: 'expenses' }
+  | { name: 'settings' }
 
 const TABS = [
   { icon: '🏠', label: 'Home' },
-  { icon: '📦', label: 'Items' },
   { icon: '🧾', label: 'Bills' },
+  { icon: '📦', label: 'Items' },
   { icon: '📊', label: 'Reports' },
-  { icon: '⚙️', label: 'Settings' },
+  { icon: '☰', label: 'More' },
 ]
 
 export default function App() {
@@ -48,7 +54,6 @@ export default function App() {
     void db.items.count().then((c) => setSeeded(c > 0))
   }, [loadBusiness])
 
-  // Android back button / browser back closes the open sub-screen
   useEffect(() => {
     const onPop = () => setRoute((r) => (r.name === 'none' ? r : { name: 'none' }))
     window.addEventListener('popstate', onPop)
@@ -86,6 +91,15 @@ export default function App() {
     setInstallEvt(null)
   }
 
+  const handleMore = (target: MoreTarget) => {
+    if (target === 'parties') openRoute({ name: 'parties' })
+    else if (target === 'payments') openRoute({ name: 'payments' })
+    else if (target === 'expenses') openRoute({ name: 'expenses' })
+    else if (target === 'settings') openRoute({ name: 'settings' })
+    else if (target === 'reports') setTab(3)
+    else if (target === 'billing') void openNewBill('TAX_INVOICE')
+  }
+
   if (!business || onboarded === null) {
     return (
       <div className="app-shell items-center justify-center">
@@ -112,7 +126,7 @@ export default function App() {
           onBack={() => setRoute({ name: 'none' })}
           onSaved={(id) => {
             setRoute({ name: 'view', id })
-            setTab(2)
+            setTab(1)
           }}
         />
         <Toaster />
@@ -138,26 +152,47 @@ export default function App() {
     )
   }
 
-  if (route.name === 'parties') {
+  if (route.name !== 'none') {
+    const meta: Record<string, { title: string; subtitle: string }> = {
+      parties: { title: 'Khata / Parties', subtitle: 'Customer & supplier udhaar' },
+      payments: { title: 'Payments In / Out', subtitle: 'Paisa aaya ya diya — pura register' },
+      expenses: { title: 'Dukaan ka kharcha', subtitle: 'Kiraya, salary, bijli, transport' },
+      settings: { title: 'Settings', subtitle: 'Dukaan details, series, backup' },
+    }
+    const info = meta[route.name]
     return (
       <div className="app-shell">
         <div className="topbar">
           <button className="btn btn-sm bg-white/10 text-white hover:bg-white/20" onClick={() => setRoute({ name: 'none' })}>
             ←
           </button>
-          <div className="flex-1">
-            <div className="text-sm font-bold">Khata / Parties</div>
-            <div className="text-[11px] text-brand-200">Customer & supplier udhaar</div>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-sm font-bold">{info.title}</div>
+            <div className="truncate text-[11px] text-brand-200">{info.subtitle}</div>
           </div>
         </div>
-        <PartiesScreen business={business} onOpenInvoice={(id) => openRoute({ name: 'view', id })} />
+        {route.name === 'parties' ? (
+          <PartiesScreen business={business} onOpenInvoice={(id) => openRoute({ name: 'view', id })} />
+        ) : null}
+        {route.name === 'payments' ? (
+          <PaymentsScreen business={business} onOpenInvoice={(id) => openRoute({ name: 'view', id })} />
+        ) : null}
+        {route.name === 'expenses' ? <ExpensesScreen business={business} /> : null}
+        {route.name === 'settings' ? (
+          <SettingsScreen
+            business={business}
+            onBusinessChange={() => void loadBusiness()}
+            onOpenParties={() => openRoute({ name: 'parties' })}
+            installPrompt={installEvt}
+            onInstall={() => void install()}
+          />
+        ) : null}
         <Toaster />
       </div>
     )
   }
 
-  const title =
-    tab === 0 ? business.name : tab === 1 ? 'Items / Stock' : tab === 2 ? 'Bills' : tab === 3 ? 'Reports' : 'Settings'
+  const title = tab === 0 ? business.name : tab === 1 ? 'Bills' : tab === 2 ? 'Items / Stock' : tab === 3 ? 'Reports' : 'More'
 
   return (
     <div className="app-shell">
@@ -166,20 +201,14 @@ export default function App() {
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-bold">{title}</div>
           <div className="truncate text-[11px] text-brand-200">
-            {seeded ? `${fmtDate(todayISO())}` : 'Setup…'}
+            {seeded ? fmtDate(todayISO()) : 'Setup…'}
             {business.gstin ? ` • GSTIN ${business.gstin}` : ''}
           </div>
         </div>
         <button className="btn btn-sm bg-white/10 text-white hover:bg-white/20" onClick={() => void openNewBill('TAX_INVOICE')}>
           ＋ Bill
         </button>
-        <button
-          className="btn btn-sm bg-white/10 text-white hover:bg-white/20"
-          onClick={() => {
-            setTab(4)
-            setRoute({ name: 'none' })
-          }}
-        >
+        <button className="btn btn-sm bg-white/10 text-white hover:bg-white/20" onClick={() => openRoute({ name: 'settings' })}>
           ⚙️
         </button>
       </div>
@@ -192,32 +221,33 @@ export default function App() {
           onOpenInvoice={(id) => openRoute({ name: 'view', id })}
           onGoItems={() => {
             setLowStockFocus(true)
-            setTab(1)
+            setTab(2)
           }}
           onGoReports={() => setTab(3)}
           onGoParties={() => openRoute({ name: 'parties' })}
+          onGoPayments={() => openRoute({ name: 'payments' })}
+          onGoExpenses={() => openRoute({ name: 'expenses' })}
         />
       ) : null}
 
-      {tab === 1 ? <ItemsScreen business={business} focusLowStock={lowStockFocus} /> : null}
-
-      {tab === 2 ? (
+      {tab === 1 ? (
         <InvoicesScreen business={business} onOpen={(id) => openRoute({ name: 'view', id })} onNewBill={(d) => void openNewBill(d)} />
       ) : null}
+
+      {tab === 2 ? <ItemsScreen business={business} focusLowStock={lowStockFocus} /> : null}
 
       {tab === 3 ? <ReportsScreen business={business} /> : null}
 
       {tab === 4 ? (
-        <SettingsScreen
+        <MoreScreen
           business={business}
-          onBusinessChange={() => void loadBusiness()}
-          onOpenParties={() => openRoute({ name: 'parties' })}
-          installPrompt={installEvt}
+          onNewBill={(d) => void openNewBill(d)}
+          onOpen={handleMore}
+          onOpenInvoice={(id) => openRoute({ name: 'view', id })}
+          hasInstall={!!installEvt}
           onInstall={() => void install()}
         />
       ) : null}
-
-      {tab !== 2 ? <Fab label="Naya Bill" onClick={() => void openNewBill('TAX_INVOICE')} /> : null}
 
       <nav className="tabbar no-print">
         {TABS.map((t, i) => (
@@ -232,3 +262,5 @@ export default function App() {
     </div>
   )
 }
+
+export type { ReactNode }

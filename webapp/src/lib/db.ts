@@ -4,9 +4,11 @@ import type {
   Business,
   DocSetting,
   DocType,
+  Expense,
   Invoice,
   Item,
   Party,
+  PartyPayment,
 } from './types'
 import { DOC_TYPES } from './types'
 
@@ -17,6 +19,8 @@ export class ShowroomDB extends Dexie {
   invoices!: Table<Invoice, number>
   docSettings!: Table<DocSetting, string>
   appSettings!: Table<AppSetting, string>
+  payments!: Table<PartyPayment, number>
+  expenses!: Table<Expense, number>
 
   constructor() {
     super('showroom_manager_v2')
@@ -28,6 +32,11 @@ export class ShowroomDB extends Dexie {
         '++id, docType, number, date, partyId, partyName, status, createdAt, [docType+date], [date+status]',
       docSettings: 'docType',
       appSettings: 'key',
+    })
+    // v2: khata payments (payment in/out) + expenses
+    this.version(2).stores({
+      payments: '++id, date, direction, partyId, mode, createdAt',
+      expenses: '++id, date, category, mode, createdAt',
     })
   }
 }
@@ -105,8 +114,11 @@ export async function seedDatabase(): Promise<void> {
   const businessCount = await db.business.count()
   if (businessCount === 0) await db.business.add({ ...DEFAULT_BUSINESS })
 
-  const docCount = await db.docSettings.count()
-  if (docCount === 0) await db.docSettings.bulkAdd(DEFAULT_DOC_SETTINGS.map((d) => ({ ...d })))
+  // make sure every document type has a number series (also adds newly introduced types)
+  for (const def of DEFAULT_DOC_SETTINGS) {
+    const existing = await db.docSettings.get(def.docType)
+    if (!existing) await db.docSettings.put({ ...def })
+  }
 
   const itemCount = await db.items.count()
   if (itemCount === 0) await db.items.bulkAdd(SAMPLE_ITEMS as Item[])

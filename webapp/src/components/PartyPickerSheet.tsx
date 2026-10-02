@@ -12,11 +12,15 @@ export function PartyPickerSheet({
   onClose,
   onPick,
   shopStateCode = '08',
+  partyType = 'ALL',
+  allowCash = true,
 }: {
   open: boolean
   onClose: () => void
   onPick: (party: Party | null) => void
   shopStateCode?: string
+  partyType?: PartyType | 'ALL'
+  allowCash?: boolean
 }) {
   const [q, setQ] = useState('')
   const [creating, setCreating] = useState(false)
@@ -26,7 +30,7 @@ export function PartyPickerSheet({
     gstin: '',
     address: '',
     state: shopStateCode,
-    type: 'CUSTOMER',
+    type: partyType === 'SUPPLIER' ? 'SUPPLIER' : 'CUSTOMER',
     openingBalance: '',
   })
 
@@ -34,11 +38,12 @@ export function PartyPickerSheet({
 
   const filtered = useMemo(() => {
     const n = q.trim().toLowerCase()
+    const scoped = partyType === 'ALL' ? parties : parties.filter((p) => p.type === partyType)
     const list = n
-      ? parties.filter((p) => p.name.toLowerCase().includes(n) || (p.phone ?? '').includes(n))
-      : parties
+      ? scoped.filter((p) => p.name.toLowerCase().includes(n) || (p.phone ?? '').includes(n))
+      : scoped
     return list.slice(0, 150)
-  }, [parties, q])
+  }, [parties, q, partyType])
 
   const save = async () => {
     if (!form.name.trim()) {
@@ -71,7 +76,11 @@ export function PartyPickerSheet({
       open={open}
       onClose={onClose}
       title={creating ? 'Naya party / customer' : 'Party chunein'}
-      subtitle={creating ? 'Naam zaroori hai, baaki optional' : `${parties.length} party`}
+      subtitle={
+        creating
+          ? 'Naam zaroori hai, baaki optional'
+          : `${filtered.length} ${partyType === 'SUPPLIER' ? 'supplier' : 'party'}`
+      }
       full
     >
       {creating ? (
@@ -124,11 +133,13 @@ export function PartyPickerSheet({
           <div className="sticky -top-3 z-10 -mx-4 -mt-3 mb-2 bg-white px-4 pb-2 pt-3">
             <SearchInput value={q} onChange={setQ} placeholder="Party ka naam ya mobile…" />
             <div className="mt-2 flex gap-2">
-              <button className="btn btn-outline btn-sm flex-1" onClick={() => onPick(null)}>
-                🧍 Cash Sale (bina party)
-              </button>
+              {allowCash ? (
+                <button className="btn btn-outline btn-sm flex-1" onClick={() => onPick(null)}>
+                  🧍 Cash Sale (bina party)
+                </button>
+              ) : null}
               <button className="btn btn-primary btn-sm flex-1" onClick={() => setCreating(true)}>
-                ＋ Naya party
+                ＋ Naya {partyType === 'SUPPLIER' ? 'supplier' : 'party'}
               </button>
             </div>
           </div>

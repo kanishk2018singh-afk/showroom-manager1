@@ -14,6 +14,8 @@ export function HomeScreen({
   onGoItems,
   onGoReports,
   onGoParties,
+  onGoPayments,
+  onGoExpenses,
   lowStockOnly,
 }: {
   business: Business
@@ -22,10 +24,13 @@ export function HomeScreen({
   onGoItems: () => void
   onGoReports: () => void
   onGoParties: () => void
+  onGoPayments: () => void
+  onGoExpenses: () => void
   lowStockOnly?: boolean
 }) {
   const invoices = useLiveQuery(() => db.invoices.orderBy('createdAt').reverse().toArray(), [], [] as Invoice[])
   const items = useLiveQuery(() => db.items.toArray(), [])
+  const expenses = useLiveQuery(() => db.expenses.toArray(), [])
 
   const today = todayISO()
   const month = { from: monthStart(), to: monthEnd() }
@@ -36,6 +41,9 @@ export function HomeScreen({
     let monthSale = 0
     let weekSale = 0
     let receivable = 0
+    let payable = 0
+    let purchaseMonth = 0
+    let expenseMonth = 0
     let cashToday = 0
     let upiToday = 0
     let billsToday = 0
@@ -51,6 +59,9 @@ export function HomeScreen({
         if (inv.date >= month.from && inv.date <= month.to) monthSale += t.grandTotal
         if (inv.date >= week.from && inv.date <= week.to) weekSale += t.grandTotal
         receivable += t.due
+      } else if (meta.isPurchase) {
+        if (inv.date >= month.from && inv.date <= month.to) purchaseMonth += t.grandTotal
+        payable += t.due
       } else if (meta.negative) {
         monthSale -= t.grandTotal
         receivable -= t.due
@@ -62,6 +73,9 @@ export function HomeScreen({
         })
       }
     })
+    ;(expenses ?? []).forEach((e) => {
+      if (e.date >= month.from && e.date <= month.to) expenseMonth += e.amount
+    })
     const lowStock = (items ?? []).filter((i) => i.stockQty <= i.lowStockAlert)
     const out = lowStock.filter((i) => i.stockQty <= 0)
     const stockValue = (items ?? []).reduce((s, i) => s + i.purchasePrice * i.stockQty, 0)
@@ -70,6 +84,9 @@ export function HomeScreen({
       monthSale: round2(monthSale),
       weekSale: round2(weekSale),
       receivable: round2(receivable),
+      payable: round2(payable),
+      purchaseMonth: round2(purchaseMonth),
+      expenseMonth: round2(expenseMonth),
       cashToday: round2(cashToday),
       upiToday: round2(upiToday),
       billsToday,
@@ -77,7 +94,7 @@ export function HomeScreen({
       outOfStock: out.length,
       stockValue: round2(stockValue),
     }
-  }, [invoices, items, business.stateCode, today, month.from, month.to, week.from, week.to])
+  }, [invoices, items, expenses, business.stateCode, today, month.from, month.to, week.from, week.to])
 
   const recent = (invoices ?? []).slice(0, 6)
   const dueInvoices = (invoices ?? [])
@@ -115,6 +132,20 @@ export function HomeScreen({
       <div className="mt-3 grid grid-cols-2 gap-2">
         <StatBox label="Is mahine ki sale" value={money(stats.monthSale)} tone="money" sub={`7 din: ${money(stats.weekSale)}`} onClick={onGoReports} />
         <StatBox label="Udhaar (lena hai)" value={money(stats.receivable)} tone="due" icon="⏳" onClick={onGoParties} />
+        <StatBox
+          label="Supplier ko dena hai"
+          value={money(stats.payable)}
+          icon="📥"
+          sub={`Purchase (mahina): ${money(stats.purchaseMonth, 0)}`}
+          onClick={onGoPayments}
+        />
+        <StatBox
+          label="Mahine ka kharcha"
+          value={money(stats.expenseMonth)}
+          icon="🧾"
+          sub={stats.expenseMonth > 0 ? 'net profit ise ghatata hai' : 'abhi kuch nahi likha'}
+          onClick={onGoExpenses}
+        />
         <StatBox label="Stock value (cost)" value={money(stats.stockValue)} sub={`${num((items ?? []).length, 0)} items`} onClick={onGoItems} />
         <StatBox
           label="Low stock"
@@ -127,7 +158,41 @@ export function HomeScreen({
       </div>
 
       <div className="section-title mt-4">
-        <span>Kya banana hai?</span>
+        <span>Khata ka kaam (ek tap)</span>
+      </div>
+      <div className="grid grid-cols-4 gap-2">
+        <button
+          className="flex flex-col items-center gap-1 rounded-2xl border border-slate-200 bg-white px-1 py-2.5 shadow-sm active:scale-[0.97]"
+          onClick={() => onNewBill('PURCHASE')}
+        >
+          <span className="text-lg">📥</span>
+          <span className="text-[10px] font-bold text-slate-700">Purchase</span>
+        </button>
+        <button
+          className="flex flex-col items-center gap-1 rounded-2xl border border-slate-200 bg-white px-1 py-2.5 shadow-sm active:scale-[0.97]"
+          onClick={onGoParties}
+        >
+          <span className="text-lg">👥</span>
+          <span className="text-[10px] font-bold text-slate-700">Khata</span>
+        </button>
+        <button
+          className="flex flex-col items-center gap-1 rounded-2xl border border-slate-200 bg-white px-1 py-2.5 shadow-sm active:scale-[0.97]"
+          onClick={onGoPayments}
+        >
+          <span className="text-lg">💸</span>
+          <span className="text-[10px] font-bold text-slate-700">Payment</span>
+        </button>
+        <button
+          className="flex flex-col items-center gap-1 rounded-2xl border border-slate-200 bg-white px-1 py-2.5 shadow-sm active:scale-[0.97]"
+          onClick={onGoExpenses}
+        >
+          <span className="text-lg">🧾</span>
+          <span className="text-[10px] font-bold text-slate-700">Kharcha</span>
+        </button>
+      </div>
+
+      <div className="section-title mt-4">
+        <span>Naya bill / document</span>
       </div>
       <div className="grid grid-cols-3 gap-2">
         {quick.map((d) => (

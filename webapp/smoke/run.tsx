@@ -71,7 +71,7 @@ async function main() {
   const repo = await import('../src/lib/repo')
   const calc = await import('../src/lib/calc')
   const { parseItemsCsv, itemsToCsv } = await import('../src/lib/csvutil')
-  const { amountInWords } = await import('../src/lib/format')
+  const { amountInWords, todayISO: todayIso } = await import('../src/lib/format')
 
   console.log('\n== Data layer ==')
   await seedDatabase()
@@ -79,7 +79,7 @@ async function main() {
   const items = await repo.listItems()
   check('seed: shop + sample items', items.length >= 10 && !!business.name, `${items.length} items`)
   const docSettings = await db.docSettings.toArray()
-  check('seed: 6 document types', docSettings.length === 6, docSettings.map((d) => d.prefix).join(','))
+  check('seed: 7 document types (purchase samet)', docSettings.length === 7, docSettings.map((d) => d.prefix).join(','))
 
   const item1 = items[0]
   const item2 = items[1]
@@ -177,6 +177,102 @@ async function main() {
   check('csv: android app format', parsedAndroid.items.length === 1 && parsedAndroid.items[0].mrp === 2999)
 
   check('words: indian lakh format', amountInWords(125430) === 'Rupees One Lakh Twenty Five Thousand Four Hundred and Thirty Only', amountInWords(125430))
+
+  // ---------------- purchase + payments + expenses + aging ----------------
+  const supplierId = await repo.upsertParty({
+    type: 'SUPPLIER',
+    name: 'Test Supplier',
+    phone: '9812345678',
+    openingBalance: 0,
+    createdAt: Date.now(),
+  })
+  const purchDraft = await repo.newInvoice('PURCHASE')
+  const stockBeforePurchase = (await db.items.get(item2.id!))!.stockQty
+  const purchaseId = await repo.saveInvoice(
+    {
+      ...purchDraft,
+      partyId: supplierId,
+      partyName: 'Test Supplier',
+      partyPhone: '9812345678',
+      placeOfSupply: business.stateCode,
+      items: [calc.lineFromItem(item2, 4)],
+      payments: [],
+    },
+    business.stateCode,
+  )
+  const purchase = (await db.invoices.get(purchaseId))!
+  const pTotals = calc.computeTotals(purchase, business.stateCode)
+  check('purchase: number series PUR/', purchase.number.startsWith('PUR/'), purchase.number)
+  check(
+    'purchase: stock IN',
+    (await db.items.get(item2.id!))!.stockQty === stockBeforePurchase + 4,
+    `${stockBeforePurchase} → ${(await db.items.get(item2.id!))!.stockQty}`,
+  )
+  const supplierBal = await repo.balanceOf(supplierId, business.stateCode)
+  check('purchase: supplier ko dena hai (negative = payable)', close(supplierBal, -pTotals.grandTotal), `balance ${supplierBal}`)
+
+  // partial supplier payment (out)
+  await repo.recordPayment(purchaseId, { amount: 300, mode: 'BANK', date: purchase.date })
+  const afterPartPay = await repo.balanceOf(supplierId, business.stateCode)
+  check('purchase: partial payment se payable kam', close(afterPartPay, -(pTotals.grandTotal - 300)), `${afterPartPay}`)
+
+  // standalone khata payment IN from customer reduces receivable
+  const balBeforeIn = await repo.balanceOf(partyId, business.stateCode)
+  await repo.addPayment({
+    date: todayIso(),
+    direction: 'IN',
+    partyId,
+    partyName: 'Test Customer',
+    amount: 150,
+    mode: 'UPI',
+    note: 'on account',
+    createdAt: Date.now(),
+  })
+  const balAfterIn = await repo.balanceOf(partyId, business.stateCode)
+  check('khata payment IN: receivable kam', close(balAfterIn, balBeforeIn - 150), `${balBeforeIn} → ${balAfterIn}`)
+
+  // payment register merges bill payments + khata payments
+  const wide = { from: '2000-01-01', to: '2099-12-31' }
+  const register = await repo.paymentRegister(wide.from, wide.to)
+  const ins = register.filter((r) => r.direction === 'IN').reduce((s, r) => s + r.amount, 0)
+  const outs = register.filter((r) => r.direction === 'OUT').reduce((s, r) => s + r.amount, 0)
+  check('payment register: IN/OUT mila', register.length >= 4 && ins > 0 && outs >= 300, `IN ${ins}, OUT ${outs}`)
+
+  // expenses
+  const expId = await repo.upsertExpense({
+    date: todayIso(),
+    category: 'Rent',
+    amount: 2500,
+    mode: 'CASH',
+    paidTo: 'Landlord',
+    note: '',
+    createdAt: Date.now(),
+  })
+  check('expense: save + list', (await repo.expensesBetween(wide.from, wide.to)).some((e) => e.id === expId))
+  await repo.upsertExpense({ id: expId, date: todayIso(), category: 'Rent', amount: 3000, mode: 'CASH', createdAt: Date.now() })
+  check('expense: edit', (await db.expenses.get(expId))!.amount === 3000)
+
+  // aging report: receivable from customer, payable to supplier
+  const aging = await repo.agingReport(business.stateCode)
+  check(
+    'aging: receivable + payable alag-alag',
+    aging.totalReceivable > 0 && aging.totalPayable > 0 && aging.receivables.some((r) => r.partyName === 'Test Customer'),
+    `recv ${aging.totalReceivable}, pay ${aging.totalPayable}`,
+  )
+  check(
+    'aging: on-account payment kam ho gaya',
+    close(aging.totalPayable, pTotals.grandTotal - 300),
+    `payable ${aging.totalPayable} = ${pTotals.grandTotal} - 300`,
+  )
+  check(
+    'aging: 0-30 bucket me sab (aaj ke bill)',
+    aging.receivables.every((r) => r.d61_90 === 0 && r.d90plus === 0),
+    undefined,
+  )
+
+  // purchase rates sync
+  const updated = await repo.applyPurchaseRates(purchase)
+  check('purchase: item cost update', updated >= 0 && (await db.items.get(item2.id!))!.purchasePrice > 0, `${updated} item(s)`)
 
   const bizRow = await db.business.toCollection().first()
   if (bizRow?.id) {
@@ -295,6 +391,85 @@ async function main() {
     check('payment: saved to invoice', (lastInv.payments?.length ?? 0) > 0, `${lastInv.payments?.length ?? 0} payment(s)`)
     check('payment: bill now shows Paid', html.includes('Paid'))
   }
+
+  // More tab → Khata, Payments, Expenses
+  const backBtn = [...rootEl.querySelectorAll('button')].find((b) => b.textContent?.trim() === '←')
+  click(dom, backBtn)
+  await wait(600)
+  const moreTab = [...rootEl.querySelectorAll('button')].find((b) => b.textContent?.trim() === '☰More' || b.textContent?.trim() === 'More')
+  click(dom, moreTab)
+  await wait(700)
+  html = rootEl.innerHTML
+  check('more: hub renders', html.includes('Khata / Parties') && html.includes('Payments In/Out') && html.includes('Expenses'))
+
+  const paymentsTile = [...rootEl.querySelectorAll('button')].find((b) => (b.textContent ?? '').includes('Payments In/Out'))
+  click(dom, paymentsTile)
+  await wait(900)
+  html = rootEl.innerHTML
+  check('payments: register renders', html.includes('Paisa aaya') && html.includes('Paisa diya'))
+  check('payments: entries listed', html.includes('Test Supplier') || html.includes('Test Customer'))
+
+  const payAddBtn = [...rootEl.querySelectorAll('button')].find((b) => (b.textContent ?? '').includes('Payment likhein'))
+  click(dom, payAddBtn)
+  await wait(600)
+  check('payments: add sheet opens', rootEl.innerHTML.includes('Party chunein'))
+  const closeX = [...rootEl.querySelectorAll('button')].find((b) => b.textContent?.trim() === '✕')
+  click(dom, closeX)
+  await wait(400)
+
+  const back2 = [...rootEl.querySelectorAll('button')].find((b) => b.textContent?.trim() === '←')
+  click(dom, back2)
+  await wait(600)
+  const expensesTile = [...rootEl.querySelectorAll('button')].find((b) => (b.textContent ?? '').includes('Expenses'))
+  click(dom, expensesTile)
+  await wait(900)
+  html = rootEl.innerHTML
+  check('expenses: screen renders total', html.includes('Total kharcha') && html.includes('Naya kharcha'))
+  check('expenses: rent entry visible', html.includes('Dukan ka kiraya') || html.includes('Rent'))
+
+  const expAdd = [...rootEl.querySelectorAll('button')].find((b) => (b.textContent ?? '').includes('Naya kharcha likhein'))
+  click(dom, expAdd)
+  await wait(600)
+  check('expenses: editor sheet opens', rootEl.innerHTML.includes('Category') && rootEl.innerHTML.includes('Save karein'))
+  const closeX2 = [...rootEl.querySelectorAll('button')].find((b) => b.textContent?.trim() === '✕')
+  click(dom, closeX2)
+  await wait(400)
+
+  // reports: aging + day book + net profit
+  const back3 = [...rootEl.querySelectorAll('button')].find((b) => b.textContent?.trim() === '←')
+  click(dom, back3)
+  await wait(600)
+  const repTab2 = [...rootEl.querySelectorAll('button')].find((b) => b.textContent?.trim() === '📊Reports' || b.textContent?.trim() === 'Reports')
+  click(dom, repTab2)
+  await wait(900)
+  html = rootEl.innerHTML
+  check('reports: net profit + purchase section', html.includes('Net profit') || html.includes('Purchase (supplier)'))
+  check('reports: aging table', html.includes('Udhaar aging') && html.includes('Lena hai'))
+  check('reports: day book', html.includes('Day book'))
+
+  // purchase bill flow: home quick tile → billing shows PUR series + supplier picker
+  const backToHome = [...rootEl.querySelectorAll('button')].find((b) => b.textContent?.trim() === '🏠Home' || b.textContent?.trim() === 'Home')
+  click(dom, backToHome)
+  await wait(600)
+  const purchaseTile = [...rootEl.querySelectorAll('button')].find((b) => (b.textContent ?? '').trim() === '📥Purchase')
+  click(dom, purchaseTile)
+  await wait(900)
+  html = rootEl.innerHTML
+  check('purchase UI: billing opens with PUR series', /PUR\/\d{2}-\d{2}\/\d{3}/.test(html), (html.match(/PUR\/\d{2}-\d{2}\/\d{3}/) ?? [])[0])
+  check('purchase UI: supplier prompt', html.includes('Supplier chunein') || html.includes('Supplier bill'))
+
+  const addItemBtn2 = [...rootEl.querySelectorAll('button')].find((b) => b.textContent?.includes('＋ Item'))
+  click(dom, addItemBtn2)
+  await wait(600)
+  const purchaseItem = [...rootEl.querySelectorAll('button.list-row')].find((b) => (b.textContent ?? '').includes('cost'))
+  click(dom, purchaseItem)
+  await wait(600)
+  const saveBtn2 = [...rootEl.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Save')
+  click(dom, saveBtn2)
+  await wait(1600)
+  html = rootEl.innerHTML
+  check('purchase UI: saved bill shows PURCHASE BILL paper', html.includes('PURCHASE BILL'), undefined)
+  check('purchase UI: shows payable wording', html.includes('Dena hai') || html.includes('Supplier ko payment'))
 
   const appErrors = errors.filter((e) => String(e).includes('Error') || String(e).includes('Cannot'))
   check('react: no render errors', appErrors.length === 0, appErrors.slice(0, 2).map(String).join(' | '))

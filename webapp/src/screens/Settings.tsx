@@ -31,6 +31,8 @@ export function SettingsScreen({
   const items = useLiveQuery(() => db.items.count(), [], 0)
   const invoices = useLiveQuery(() => db.invoices.count(), [], 0)
   const parties = useLiveQuery(() => db.parties.count(), [], 0)
+  const payments = useLiveQuery(() => db.payments.count(), [], 0)
+  const expenses = useLiveQuery(() => db.expenses.count(), [], 0)
 
   useEffect(() => setForm(business), [business])
 
@@ -213,18 +215,26 @@ export function SettingsScreen({
       {/* Data */}
       <div className="card mt-3">
         <div className="text-[13px] font-bold text-slate-700">💾 Data & backup</div>
-        <div className="mt-1 grid grid-cols-3 gap-2 text-center">
+        <div className="mt-1 grid grid-cols-5 gap-1.5 text-center">
           <div className="rounded-xl bg-slate-50 py-2">
-            <div className="num text-sm font-extrabold">{items}</div>
-            <div className="text-[10px] font-bold uppercase text-slate-500">items</div>
+            <div className="num text-[13px] font-extrabold">{items}</div>
+            <div className="text-[9px] font-bold uppercase text-slate-500">items</div>
           </div>
           <div className="rounded-xl bg-slate-50 py-2">
-            <div className="num text-sm font-extrabold">{invoices}</div>
-            <div className="text-[10px] font-bold uppercase text-slate-500">bills</div>
+            <div className="num text-[13px] font-extrabold">{invoices}</div>
+            <div className="text-[9px] font-bold uppercase text-slate-500">bills</div>
           </div>
           <div className="rounded-xl bg-slate-50 py-2">
-            <div className="num text-sm font-extrabold">{parties}</div>
-            <div className="text-[10px] font-bold uppercase text-slate-500">parties</div>
+            <div className="num text-[13px] font-extrabold">{parties}</div>
+            <div className="text-[9px] font-bold uppercase text-slate-500">parties</div>
+          </div>
+          <div className="rounded-xl bg-slate-50 py-2">
+            <div className="num text-[13px] font-extrabold">{payments}</div>
+            <div className="text-[9px] font-bold uppercase text-slate-500">payments</div>
+          </div>
+          <div className="rounded-xl bg-slate-50 py-2">
+            <div className="num text-[13px] font-extrabold">{expenses}</div>
+            <div className="text-[9px] font-bold uppercase text-slate-500">kharcha</div>
           </div>
         </div>
         <div className="mt-2 flex flex-col gap-2">
@@ -247,6 +257,17 @@ export function SettingsScreen({
         <button className="btn btn-outline btn-block mt-2" onClick={onOpenParties}>
           Customer & supplier khata kholein
         </button>
+      </div>
+
+      <div className="card mt-3">
+        <div className="text-[13px] font-bold text-slate-700">📊 Reports me kya-kya hai</div>
+        <ul className="mt-1 list-inside list-disc text-[11px] leading-relaxed text-slate-500">
+          <li>Sale, purchase, kharcha, gross + net profit</li>
+          <li>GST / HSN summary (GSTR-1 jaisa), din-wise aur mahine-wise</li>
+          <li>Udhaar aging — 0-30, 31-60, 61-90, 90+ din (lena / dena)</li>
+          <li>Day book — ek din ka pura hisab (bill + payment + kharcha)</li>
+          <li>Top items, top parties, stock value — sab CSV export</li>
+        </ul>
       </div>
 
       <div className="card mt-3">

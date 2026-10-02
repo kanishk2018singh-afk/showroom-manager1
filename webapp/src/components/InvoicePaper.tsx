@@ -67,7 +67,9 @@ export function InvoicePaper({
             ? 'DELIVERY CHALLAN'
             : invoice.docType === 'BILL_OF_SUPPLY'
               ? 'BILL OF SUPPLY'
-              : 'CREDIT NOTE'
+              : invoice.docType === 'CREDIT_NOTE'
+                ? 'CREDIT NOTE'
+                : 'PURCHASE BILL'
 
   const qr =
     due && business.upiId
@@ -233,7 +235,7 @@ export function InvoicePaper({
         <div className="flex" style={{ borderBottom: '1.5px solid #0f172a' }}>
           <div className="flex-1 p-2.5" style={{ borderRight: '1px solid #94a3b8' }}>
             <div style={{ fontSize: 9.5, fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>
-              {meta.isSale || meta.negative ? 'Bill To' : 'Party Details'}
+              {meta.isSale || meta.negative ? 'Bill To' : meta.isPurchase ? 'Supplier (bill from)' : 'Party Details'}
             </div>
             <div style={{ fontSize: 13, fontWeight: 700 }}>{invoice.partyName || 'Cash Sale / Walk-in Customer'}</div>
             <div style={{ fontSize: 10.5, lineHeight: 1.5 }}>
@@ -250,7 +252,16 @@ export function InvoicePaper({
               {invoice.transportName ? <div>Transport: {invoice.transportName}</div> : null}
               {invoice.vehicleNo ? <div>Vehicle No: {invoice.vehicleNo}</div> : null}
               {invoice.eWayBill ? <div>E-Way Bill: {invoice.eWayBill}</div> : null}
-              <div>Payment: {t.paid > 0 ? `${money(t.paid)} received` : 'Credit / Due'}</div>
+              <div>
+                Payment:{' '}
+                {t.paid > 0
+                  ? meta.isPurchase
+                    ? `${money(t.paid)} paid`
+                    : `${money(t.paid)} received`
+                  : meta.isPurchase
+                    ? 'Payable / udhaar'
+                    : 'Credit / Due'}
+              </div>
             </div>
           </div>
         </div>

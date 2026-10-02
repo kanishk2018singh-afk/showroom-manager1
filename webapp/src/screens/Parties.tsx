@@ -28,12 +28,24 @@ export function PartiesScreen({ business, onOpenInvoice }: { business: Business;
   const totals = useMemo(() => {
     let receivable = 0
     let advance = 0
+    let payable = 0
+    let supplierAdvance = 0
     parties.forEach((p) => {
       const b = balances.get(p.id!) ?? 0
-      if (b > 0) receivable += b
-      else advance += -b
+      if (p.type === 'SUPPLIER') {
+        if (b < 0) payable += -b
+        else supplierAdvance += b
+      } else {
+        if (b > 0) receivable += b
+        else advance += -b
+      }
     })
-    return { receivable: round2(receivable), advance: round2(advance) }
+    return {
+      receivable: round2(receivable),
+      advance: round2(advance),
+      payable: round2(payable),
+      supplierAdvance: round2(supplierAdvance),
+    }
   }, [parties, balances])
 
   const newParty = (): Party => ({
@@ -59,14 +71,29 @@ export function PartiesScreen({ business, onOpenInvoice }: { business: Business;
       />
 
       <div className="mt-3 grid grid-cols-2 gap-2">
-        <div className="stat-box">
-          <div className="text-[10px] font-bold uppercase text-slate-500">Lena hai (udhaar)</div>
-          <div className="num text-[15px] font-extrabold text-due">{money(totals.receivable)}</div>
-        </div>
-        <div className="stat-box">
-          <div className="text-[10px] font-bold uppercase text-slate-500">Advance jama</div>
-          <div className="num text-[15px] font-extrabold text-money">{money(totals.advance)}</div>
-        </div>
+        {tab === 'CUSTOMER' ? (
+          <>
+            <div className="stat-box">
+              <div className="text-[10px] font-bold uppercase text-slate-500">Inse lena hai (udhaar)</div>
+              <div className="num text-[15px] font-extrabold text-due">{money(totals.receivable)}</div>
+            </div>
+            <div className="stat-box">
+              <div className="text-[10px] font-bold uppercase text-slate-500">Advance jama (unka paisa)</div>
+              <div className="num text-[15px] font-extrabold text-money">{money(totals.advance)}</div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="stat-box">
+              <div className="text-[10px] font-bold uppercase text-slate-500">Inko dena hai (payable)</div>
+              <div className="num text-[15px] font-extrabold text-warn">{money(totals.payable)}</div>
+            </div>
+            <div className="stat-box">
+              <div className="text-[10px] font-bold uppercase text-slate-500">Advance diya hua</div>
+              <div className="num text-[15px] font-extrabold text-money">{money(totals.supplierAdvance)}</div>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="mt-3">
@@ -101,11 +128,31 @@ export function PartiesScreen({ business, onOpenInvoice }: { business: Business;
                     </div>
                   </div>
                   <div className="shrink-0 text-right">
-                    <div className={`num text-[13px] font-extrabold ${bal > 0.5 ? 'text-due' : bal < -0.5 ? 'text-money' : 'text-slate-400'}`}>
+                    <div
+                      className={`num text-[13px] font-extrabold ${
+                        bal > 0.5
+                          ? p.type === 'SUPPLIER'
+                            ? 'text-money'
+                            : 'text-due'
+                          : bal < -0.5
+                            ? p.type === 'SUPPLIER'
+                              ? 'text-warn'
+                              : 'text-money'
+                            : 'text-slate-400'
+                      }`}
+                    >
                       {money(Math.abs(bal))}
                     </div>
                     <div className="text-[9px] font-bold uppercase text-slate-400">
-                      {bal > 0.5 ? 'lena hai' : bal < -0.5 ? 'advance' : 'hisab clear'}
+                      {bal > 0.5
+                        ? p.type === 'SUPPLIER'
+                          ? 'advance diya'
+                          : 'lena hai'
+                        : bal < -0.5
+                          ? p.type === 'SUPPLIER'
+                            ? 'dena hai'
+                            : 'advance jama'
+                          : 'hisab clear'}
                     </div>
                   </div>
                 </button>
@@ -299,9 +346,14 @@ function LedgerSheet({
     }
   })
 
-  const reminderText = `Namaste ${party.name} ji 🙏\n${business.name} ki taraf se yaad dilana — aapka ₹${round2(balance).toFixed(0)} baaki hai${
-    business.upiId ? `.\nUPI: ${business.upiId}` : ''
-  }.\nKripya payment kar dijiye. Dhanyavaad!`
+  const reminderText =
+    party.type === 'SUPPLIER' || balance < 0
+      ? `${party.name} ji 🙏\n${business.name} ki taraf se — humara ₹${round2(Math.abs(balance)).toFixed(0)} aapke paas baaki hai.${
+          business.upiId ? `\nUPI: ${business.upiId}` : ''
+        }\nKripya hisab clear kar dijiye. Dhanyavaad!`
+      : `Namaste ${party.name} ji 🙏\n${business.name} ki taraf se yaad dilana — aapka ₹${round2(balance).toFixed(0)} baaki hai${
+          business.upiId ? `.\nUPI: ${business.upiId}` : ''
+        }.\nKripya payment kar dijiye. Dhanyavaad!`
 
   return (
     <Sheet
@@ -338,8 +390,16 @@ function LedgerSheet({
           <div className="num text-[14px] font-extrabold text-money">{money(totalPaid, 0)}</div>
         </div>
         <div className={`stat-box ${balance > 0.5 ? 'border-due-soft bg-due-soft/40' : ''}`}>
-          <div className="text-[10px] font-bold uppercase text-slate-500">Baki</div>
-          <div className={`num text-[14px] font-extrabold ${balance > 0.5 ? 'text-due' : 'text-money'}`}>{money(balance, 0)}</div>
+          <div className="text-[10px] font-bold uppercase text-slate-500">
+            {balance > 0.5 ? (party.type === 'SUPPLIER' ? 'Advance diya' : 'Lena hai') : balance < -0.5 ? (party.type === 'SUPPLIER' ? 'Dena hai' : 'Advance jama') : 'Hisab clear'}
+          </div>
+          <div
+            className={`num text-[14px] font-extrabold ${
+              balance > 0.5 ? (party.type === 'SUPPLIER' ? 'text-money' : 'text-due') : 'text-money'
+            }`}
+          >
+            {money(Math.abs(balance), 0)}
+          </div>
         </div>
       </div>
 

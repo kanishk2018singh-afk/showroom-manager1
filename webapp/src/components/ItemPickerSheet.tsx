@@ -13,12 +13,14 @@ export function ItemPickerSheet({
   onPick,
   onQuickAdd,
   title = 'Item chunein',
+  showPurchaseRate = false,
 }: {
   open: boolean
   onClose: () => void
   onPick: (item: Item) => void
   onQuickAdd?: (name: string, rate: number) => void
   title?: string
+  showPurchaseRate?: boolean
 }) {
   const [q, setQ] = useState('')
   const [scannerOpen, setScannerOpen] = useState(false)
@@ -98,7 +100,10 @@ export function ItemPickerSheet({
                   </div>
                 </div>
                 <div className="shrink-0 text-right">
-                  <div className="num text-[13px] font-bold text-slate-900">{money(sale)}</div>
+                  <div className="num text-[13px] font-bold text-slate-900">
+                    {money(showPurchaseRate ? i.purchasePrice : sale)}
+                  </div>
+                  {showPurchaseRate ? <div className="text-[9px] font-bold uppercase text-slate-400">cost</div> : null}
                   <div
                     className={`text-[10px] font-bold ${
                       i.stockQty <= 0 ? 'text-due' : i.stockQty <= i.lowStockAlert ? 'text-warn' : 'text-money'
