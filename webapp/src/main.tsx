@@ -27,10 +27,17 @@ if (!rootEl) {
     hideBoot()
   }
 
+  // App ek baar render ho jaye to error-screen dikhana band — warna chhoti-moti
+  // warnings (jaise iframe me service worker register na hona) app ko dhak deti hain.
+  let appRendered = false
+
   // Aakhri safety net: koi bhi unexpected error user ko dikh jaye (blank screen ki jagah)
   window.addEventListener('unhandledrejection', (e) => {
     const msg = e.reason instanceof Error ? e.reason.message : String(e.reason ?? '')
     console.error('[showroom] unhandled rejection:', e.reason)
+    if (appRendered) return
+    // service worker iframe/opaque origin me register nahi hota — ye app ka error nahi hai
+    if (/service.?worker|sw\.js/i.test(msg)) return
     if (/indexeddb|storage|security/i.test(msg)) {
       showProblem('App ko storage nahi mila', storageFixMessage(isEmbedded()), msg)
     }
@@ -85,6 +92,7 @@ if (!rootEl) {
           {demo ? <DemoBanner embedded={isEmbedded()} /> : null}
         </StrictMode>,
       )
+      appRendered = true
       requestAnimationFrame(hideBoot)
     } catch (err) {
       console.error('Boot error', err)
