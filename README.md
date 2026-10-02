@@ -2,7 +2,25 @@
 <img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
 </div>
 
-# Run and deploy your AI Studio app
+# Showroom Manager 🏪
+
+Do hisse hain is repo me:
+
+| Folder | Kya hai | Kaise chalayein |
+| --- | --- | --- |
+| `webapp/` | **MyBillBook जैसी Billing app (Web/PWA)** — GST invoice, estimate, challan, credit note, barcode billing, udhaar khata, reports, UPI QR, WhatsApp bill, print (A4 + thermal) | `cd webapp && npm install && npm run dev` |
+| `app/` | Purani Android app (Kotlin + Compose) — product catalogue, pricing, AI studio | Android Studio, ya GitHub Actions se APK |
+| `web/` | Purana single-file web catalogue demo (`web/index.html`) | browser me khol lein |
+
+Web app ke baare me poori jankari: [`webapp/README.md`](webapp/README.md)
+
+**Phone me install:** app ko Chrome me kholkar menu (⋮) → "Install app" / "Add to Home screen" — home screen par icon aa jayega aur bina internet bhi chalega. Data phone ke andar (IndexedDB) hi rehta hai.
+
+**Deploy:** `main` branch par push karne par `.github/workflows/deploy-webapp.yml` GitHub Pages par PWA deploy kar deta hai (HTTPS link milta hai jisse phone me install ho jata hai).
+
+---
+
+# Run and deploy your AI Studio app (purani Android app)
 
 This contains everything you need to run your app locally.
 
