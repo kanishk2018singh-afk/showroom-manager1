@@ -108,11 +108,31 @@ GitHub Actions workflow `.github/workflows/deploy-webapp.yml` — `main` branch 
 
 ## 🧪 Testing (smoke test)
 
-Poore billing flow ka automated test hai (jsdom + fake IndexedDB) — isi se data layer aur UI dono check hote hain:
+Poore billing flow ka automated test hai (jsdom + fake IndexedDB) — isi se data layer aur UI dono check hote hain.
 
 ```bash
+cd webapp          # zaroori (root se bhi chal sakta hai, neeche dekhein)
+npm install        # sirf pehli baar
 npm run smoke
 ```
+
+Repo root se bhi ek line me chalta hai (root script khud `webapp` me jaata hai):
+
+```bash
+npm install --prefix webapp   # sirf pehli baar
+npm run smoke                 # root se
+```
+
+### ⚠️ Smoke test nahi chal raha? Ye 3 cheezein check karein
+
+| Error | Wajah | Fix |
+| --- | --- | --- |
+| `sh: 1: esbuild: not found` ya `Cannot find package 'jsdom'` | `webapp/node_modules` nahi bana (npm install nahi chala, ya folder delete/move ho gaya) | `cd webapp && npm install` |
+| `Missing script: "smoke"` / `Could not read package.json` | command **repo root** se chala di, jahan package.json nahi tha | `npm run smoke` (root script) ya `cd webapp && npm run smoke` |
+| `Node ... is not supported` / koi syntax error | Node purana (20 se kam) | Node 22 install karein (nodejs.org) |
+
+GitHub par har push ke saath ye test apne aap (clean environment me) chalta hai —
+workflow: `.github/workflows/webapp-test.yml` → tab **Actions → Web App Smoke Test** me result dikhta hai.
 
 Ye **72 checks** chalata hai: invoice maths (GST/CGST/SGST/IGST, bill discount, round off), number series,
 stock cut/restore, payment recording, khata balance, credit note, **purchase bill (stock IN + payable)**,

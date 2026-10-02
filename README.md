@@ -14,6 +14,17 @@ Do hisse hain is repo me:
 
 Web app ke baare me poori jankari: [`webapp/README.md`](webapp/README.md)
 
+**Web app chalayein / test karein (repo root se):**
+
+```bash
+npm install --prefix webapp   # sirf pehli baar
+npm run dev                   # http://localhost:5173
+npm run smoke                 # 72 automated checks (data + UI)
+```
+
+> ⚠️ Agar `esbuild: not found` jaisa error aaye to samajh lein ki `webapp/node_modules` nahi bana —
+> `npm install --prefix webapp` chala lein. Details: [`webapp/README.md`](webapp/README.md#-testing-smoke-test)
+
 **Phone me install:** app ko Chrome me kholkar menu (⋮) → "Install app" / "Add to Home screen" — home screen par icon aa jayega aur bina internet bhi chalega. Data phone ke andar (IndexedDB) hi rehta hai.
 
 **Deploy:** `main` branch par push karne par `.github/workflows/deploy-webapp.yml` GitHub Pages par PWA deploy kar deta hai (HTTPS link milta hai jisse phone me install ho jata hai).

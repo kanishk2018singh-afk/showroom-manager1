@@ -9,7 +9,8 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 0.0.0.0",
     "typecheck": "tsc -b --noEmit false --emitDeclarationOnly false --pretty",
-    "smoke": "esbuild smoke/run.tsx --bundle --platform=node --format=esm --loader:.tsx=tsx --external:jsdom --outfile=smoke/.build/run.mjs --log-level=error && node smoke/.build/run.mjs"
+    "smoke": "node smoke/preflight.mjs && esbuild smoke/run.tsx --bundle --platform=node --format=esm --loader:.tsx=tsx --external:jsdom --outfile=smoke/.build/run.mjs --log-level=error && node smoke/.build/run.mjs",
+    "setup": "npm install"
   },
   "dependencies": {
     "dexie": "^4.2.0",
@@ -32,5 +33,8 @@
     "typescript": "^5.9.3",
     "vite": "^7.1.9",
     "vite-plugin-pwa": "^1.0.3"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }
