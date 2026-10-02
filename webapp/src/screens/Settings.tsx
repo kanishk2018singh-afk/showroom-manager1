@@ -6,6 +6,7 @@ import { download, readFileAsDataUrl, readFileAsText } from '../lib/format'
 import { runSelfTest, type SelfTestResult } from '../lib/selftest'
 import { ConfirmDialog, Segmented, Sheet, toast } from '../components/ui'
 import { AccountCard } from '../components/AccountCard'
+import { CloudCard } from '../components/CloudCard'
 import type { Business, DocSetting } from '../lib/types'
 import { DOC_TYPES, STATES } from '../lib/types'
 
@@ -209,6 +210,9 @@ export function SettingsScreen({
           </button>
         </div>
       </div>
+
+      {/* Cloud account (Google/Email) — login karne par data sync */}
+      <CloudCard />
 
       {/* Company / Firm + Users & login */}
       <AccountCard />

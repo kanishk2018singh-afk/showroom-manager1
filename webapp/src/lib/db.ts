@@ -25,9 +25,9 @@ export class ShowroomDB extends Dexie {
   expenses!: Table<Expense, number>
   users!: Table<User, number>
 
-  constructor() {
+  constructor(name: string = dbNameFor(activeCompanyId())) {
     // Har company ka apna database (firm switch = alag data)
-    super(dbNameFor(activeCompanyId()))
+    super(name)
     this.version(1).stores({
       business: '++id',
       items: '++id, name, code, barcode, brand, category, updatedAt',
@@ -50,6 +50,20 @@ export class ShowroomDB extends Dexie {
 }
 
 export const db = new ShowroomDB()
+
+// Cloud sync me doosri companies ke database kholne padte hain
+const dbCache = new Map<string, ShowroomDB>()
+
+export function dbFor(companyId: string): ShowroomDB {
+  const name = dbNameFor(companyId)
+  if (name === db.name) return db
+  let inst = dbCache.get(name)
+  if (!inst) {
+    inst = new ShowroomDB(name)
+    dbCache.set(name, inst)
+  }
+  return inst
+}
 
 export const DEFAULT_TERMS =
   '1. Goods once sold will not be taken back or exchanged.\n2. Warranty as per manufacturer terms.\n3. Subject to local jurisdiction.'

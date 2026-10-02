@@ -5,6 +5,8 @@ import { fmtDate, todayISO } from './lib/format'
 import type { Business, DocType, Invoice } from './lib/types'
 import { Toaster, toast } from './components/ui'
 import { checkLogin } from './lib/auth'
+import { autoSyncEnabled, isCloudConfigured, isSignedIn } from './lib/cloud'
+import { syncNow } from './lib/sync'
 import { LoginScreen } from './screens/Auth'
 import { BootProblem } from './components/BootProblem'
 import { isEmbedded, storageFixMessage } from './lib/env'
@@ -77,6 +79,29 @@ export default function App() {
     void db.items.count().then((c) => setSeeded(c > 0))
     void refreshGate()
   }, [loadBusiness, refreshGate])
+
+  // Cloud sync: app khulte hi + har 3 minute me (agar login hai aur auto-sync on hai)
+  useEffect(() => {
+    if (gate !== 'ok') return
+    if (!isCloudConfigured() || !isSignedIn() || !autoSyncEnabled()) return
+    let alive = true
+    const run = async () => {
+      try {
+        const r = await syncNow()
+        if (alive && r.added + r.updated > 0) {
+          toast(`☁️ Cloud se ${r.added} nayi, ${r.updated} update aayi`, 'success')
+        }
+      } catch (e) {
+        console.warn('[showroom] auto sync fail:', e)
+      }
+    }
+    void run()
+    const t = setInterval(() => void run(), 180_000)
+    return () => {
+      alive = false
+      clearInterval(t)
+    }
+  }, [gate])
 
   useEffect(() => {
     const onPop = () => setRoute((r) => (r.name === 'none' ? r : { name: 'none' }))

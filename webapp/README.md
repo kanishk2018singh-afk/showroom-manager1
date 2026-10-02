@@ -116,6 +116,52 @@ se serve ho jata hai — app wahi pura kaam karta hai (offline bhi, kyunki servi
 Windows par serve karne ke liye `npx serve preview-build` ya VS Code ka Live Server bhi chalega.
 
 
+
+### ☁️ Cloud account (Google / Email) + data sync
+
+MyBillBook jaisa: **login karein → company ka pura data cloud me sync** → doosre phone me usi account se login
+karte hi sab wapas mil jata hai (items, bills, khata, payments, expenses, bill numbering).
+
+Setup **ek baar** karna padta hai (free Firebase project, ~5 min) — app ke andar hi poora guide hai:
+**Settings → ☁️ Cloud account → "Cloud setup karein"**
+
+1. https://console.firebase.google.com → **Add project**
+2. **Authentication → Get started** → **Email/Password** enable (Google login ke liye **Google** bhi)
+3. **Firestore Database → Create database** → Production mode → **asia-south1**
+4. Firestore **Rules** me ye paste karke Publish karein:
+
+   ```
+   rules_version = '2';
+   service cloud.firestore {
+     match /databases/{db}/documents {
+       match /showroomUsers/{uid}/{doc=**} {
+         allow read, write: if request.auth != null
+                            && request.auth.uid == uid;
+       }
+     }
+   }
+   ```
+
+5. **Project settings → Your apps → Web** → `firebaseConfig` copy karke app me paste karein
+6. **Authentication → Settings → Authorized domains** me apni site ka domain add karein
+
+Uske baad **Login / Sign up** — email+password ya **Google se login** (browser me). Login ke baad sync khud
+chalta hai (app khulte hi + har 3 minute me), aur "Saari companies sync" se ek hi baar me sab companies sync ho jati hain.
+
+**Sync kaise kaam karta hai**
+
+- Data `showroomUsers/{uid}/companies/{companyId}` document me JSON snapshot ke roop me jata hai.
+- Merge **natural key** par hota hai (item code, bill number, party naam, payment date+amount…): dono taraf same row
+  ho to **naya wala jeetta hai**, naya row ho to **jud jata hai**, aur id clash ho to naya id milta hai +
+  invoice/payment ke references (partyId, itemId) apne aap theek ho jate hain.
+- Har company ka data alag — ek account me multiple firms, jaise MyBillBook me.
+- Offline-first: internet na ho to app waise hi chalti hai; sync baad me ho jata hai.
+- APK (WebView) me Google login Google ki policy se block hai — wahan **email/password** se login karein
+  (web app me Google button chalta hai).
+
+Technical: `src/lib/cloud.ts` (Firebase Auth + Firestore REST, koi SDK nahi — bundle chhota rehta hai) aur
+`src/lib/sync.ts` (snapshot + merge). Smoke test me mock Firebase se poora flow verify hota hai.
+
 ### 🔐 Users & login (offline)
 
 - Settings → **👤 Users & login** → naya user banayein (naam, role, 4-6 ank ka PIN).

@@ -58,6 +58,8 @@ const click = (dom: JSDOM, el: Element | undefined) => {
   return true
 }
 
+const fetCallsSoFar = (calls: string[], needle: string) => calls.some((c) => c.includes(needle))
+
 async function main() {
   const dom = await setupDom()
   const rootEl = document.getElementById('root')!
@@ -586,6 +588,203 @@ async function main() {
 
     deleteCompany(nayi.id)
     check('company: test company hat gayi', !listCompanies().some((c) => c.id === nayi.id))
+  }
+
+
+  // ---------------- Cloud account + sync (mock Firebase) ----------------
+  {
+    const cloud = await import('../src/lib/cloud')
+    const sync = await import('../src/lib/sync')
+    const { db } = await import('../src/lib/db')
+
+    // ---- chhota mock Firebase: Identity Toolkit + Firestore ----
+    const docs = new Map<string, Record<string, unknown>>()
+    let fetchCalls: string[] = []
+    const enc = (v: unknown): Record<string, unknown> => {
+      if (typeof v === 'string') return { stringValue: v }
+      if (typeof v === 'number') return Number.isInteger(v) ? { integerValue: String(v) } : { doubleValue: v }
+      if (typeof v === 'boolean') return { booleanValue: v }
+      if (Array.isArray(v)) return { arrayValue: { values: v.map(enc) } }
+      if (v && typeof v === 'object') {
+        const fields: Record<string, unknown> = {}
+        for (const [k, val] of Object.entries(v as Record<string, unknown>)) fields[k] = enc(val)
+        return { mapValue: { fields } }
+      }
+      return { nullValue: null }
+    }
+    const dec = (v: any): unknown => {
+      if (!v || typeof v !== 'object') return null
+      if ('stringValue' in v) return v.stringValue
+      if ('integerValue' in v) return Number(v.integerValue)
+      if ('doubleValue' in v) return v.doubleValue
+      if ('booleanValue' in v) return v.booleanValue
+      if ('nullValue' in v) return null
+      if ('arrayValue' in v) return (v.arrayValue.values ?? []).map(dec)
+      if ('mapValue' in v) {
+        const out: Record<string, unknown> = {}
+        for (const [k, val] of Object.entries(v.mapValue.fields ?? {})) out[k] = dec(val as unknown)
+        return out
+      }
+      return null
+    }
+
+    const mockFetch = async (url: string, init?: RequestInit): Promise<Response> => {
+      fetchCalls.push(String(url))
+      const u = String(url)
+      const body = init?.body ? (JSON.parse(String(init.body)) as Record<string, unknown>) : {}
+      const ok = (obj: unknown) => new Response(JSON.stringify(obj), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      const bad = (code: string) => new Response(JSON.stringify({ error: { message: `${code} : bad` } }), { status: 400 })
+
+      if (u.includes('accounts:signUp') || u.includes('accounts:signInWithPassword')) {
+        const email = String(body.email ?? '')
+        const password = String(body.password ?? '')
+        if (password.length < 6) return bad('WEAK_PASSWORD')
+        if (u.includes('signInWithPassword') && password !== 'secret123') return bad('INVALID_LOGIN_CREDENTIALS')
+        return ok({ localId: 'uid1', email, idToken: 'tok-1', refreshToken: 'ref-1', expiresIn: '3600' })
+      }
+      if (u.includes('accounts:signInWithIdp')) return ok({ localId: 'uid1', email: 'g@example.com', idToken: 'tok-g', refreshToken: 'ref-g', expiresIn: '3600' })
+      if (u.includes('securetoken.googleapis.com')) return ok({ id_token: 'tok-2', refresh_token: 'ref-2', expires_in: '3600' })
+      if (u.includes('accounts:sendOobCode')) return ok({ email: body.email })
+      if (u.includes('firestore.googleapis.com')) {
+        const path = u.split('/documents/')[1]?.split('?')[0] ?? ''
+        const method = (init?.method ?? 'GET').toUpperCase()
+        if (!init?.headers || !(init.headers as Record<string, string>).Authorization) {
+          return new Response(JSON.stringify({ error: { message: 'PERMISSION_DENIED' } }), { status: 403 })
+        }
+        if (method === 'PATCH') {
+          const fields = (body.fields ?? {}) as Record<string, unknown>
+          const out: Record<string, unknown> = {}
+          for (const [k, v] of Object.entries(fields)) out[k] = dec(v)
+          docs.set(path, out)
+          return ok({ name: path })
+        }
+        const d = docs.get(path)
+        if (!d) return new Response('{}', { status: 404 })
+        const fields: Record<string, unknown> = {}
+        for (const [k, v] of Object.entries(d)) fields[k] = enc(v)
+        return ok({ fields })
+      }
+      return new Response('{}', { status: 404 })
+    }
+
+    const realFetch = globalThis.fetch
+    globalThis.fetch = mockFetch as unknown as typeof fetch
+
+    // ---- 1) config parse ----
+    let cfgErr = ''
+    try {
+      cloud.parseFirebaseConfig('apiKey: "AIzaTESTKEY"')
+    } catch (e) {
+      cfgErr = e instanceof Error ? e.message : 'err'
+    }
+    check('cloud: adhura config saaf error deta hai', cfgErr.includes('apiKey'), cfgErr.slice(0, 60))
+
+    const cfg = cloud.parseFirebaseConfig(
+      `const firebaseConfig = { apiKey: "AIzaTESTKEY", authDomain: "test.firebaseapp.com", projectId: "test-shop", appId: "1:1:web:1" };`,
+    )
+    cloud.setCloudConfig({ ...cfg, googleClientId: '1234-test.apps.googleusercontent.com' })
+    check('cloud: config save ho gaya (projectId mila)', cloud.getCloudConfig()?.projectId === 'test-shop' && cloud.isCloudConfigured())
+
+    // ---- 2) signup + login ----
+    const s1 = await cloud.signUpEmail('dukaan@example.com', 'secret123')
+    check('cloud: signup se session ban gaya', s1.uid === 'uid1' && cloud.isSignedIn())
+
+    let weakErr = ''
+    try {
+      await cloud.signUpEmail('x@example.com', '123')
+    } catch (e) {
+      weakErr = e instanceof Error ? e.message : ''
+    }
+    check('cloud: chhota password par Hinglish error', weakErr.includes('6 characters'), weakErr)
+
+    cloud.logoutCloud()
+    let badErr = ''
+    try {
+      await cloud.signInEmail('dukaan@example.com', 'wrongpass9')
+    } catch (e) {
+      badErr = e instanceof Error ? e.message : ''
+    }
+    check('cloud: galat password par saaf error', badErr.includes('galat'), badErr)
+
+    await cloud.signInEmail('dukaan@example.com', 'secret123')
+    check('cloud: sahi password se login ho gaya', cloud.isSignedIn())
+
+    const g = await cloud.signInWithGoogleIdToken('google-id-token-xyz')
+    check('cloud: Google login (id token) kaam karta hai', g.email === 'g@example.com' && cloud.isSignedIn())
+
+    // ---- 3) token refresh ----
+    const { store } = await import('../src/lib/store')
+    const stale = JSON.parse(store.get('local', 'showroom_cloud_session') || '{}')
+    stale.expiresAt = Date.now() - 1000
+    store.set('local', 'showroom_cloud_session', JSON.stringify(stale))
+    const t2 = await cloud.freshToken()
+    check('cloud: token expire hone par refresh hota hai', t2 === 'tok-2', t2)
+
+    // ---- 4) sync: push karta hai, phir remote change pull hota hai ----
+    // registry: cloud me ek company rakhi hai jo local me nahi hai
+    docs.set('showroomUsers/uid1', { companies: [{ id: 'remoteCo1', name: 'Cloud Wali Dukaan', createdAt: 1000 }], updatedAt: 5, updatedBy: 'uid1' })
+
+    const before = {
+      items: await db.items.count(),
+      parties: await db.parties.count(),
+    }
+    const res1 = await sync.syncNow({ all: false })
+    check('sync: pehli sync chali aur company registry cloud me gayi', res1.companies >= 1 && fetCallsSoFar(fetchCalls, 'showroomUsers/uid1'))
+    check('sync: cloud me active company ka data chadh gaya', docs.has(`showroomUsers/uid1/companies/${(await import('../src/lib/company')).activeCompanyId()}`))
+
+    const registry = (await import('../src/lib/company')).listCompanies()
+    check('sync: cloud ki nayi company switch list me aa gayi', registry.some((c) => c.id === 'remoteCo1'))
+
+    // remote snapshot me: ek nayi party + ek clash wali party (same id, alag naam) + invoice usi party ka
+    const remoteSnapshot = JSON.stringify({
+      app: 'showroom-manager',
+      version: 2,
+      business: [],
+      docSettings: [],
+      appSettings: [],
+      parties: [
+        { id: 1, name: 'Cloud Customer', phone: '9999000011', type: 'CUSTOMER', createdAt: 5000 },
+        { id: 99, name: 'Nayi Cloud Party', phone: '', type: 'CUSTOMER', createdAt: 6000 },
+      ],
+      items: [{ id: 1, code: 'CLOUD-1', name: 'Cloud Item', unit: 'PCS', mrp: 100, discountPercent: 0, gstPercent: 18, purchasePrice: 50, stockQty: 3, lowStockAlert: 1, barcode: '', notes: '', updatedAt: 9000 }],
+      invoices: [
+        { id: 5, docType: 'TAX_INVOICE', number: 'INV/CLOUD/1', date: '2026-10-01', partyId: 1, partyName: 'Cloud Customer', placeOfSupply: '08', items: [{ id: 'l1', itemId: 1, name: 'Cloud Item', code: 'CLOUD-1', unit: 'PCS', qty: 1, rate: 100, discountPercent: 0, gstPercent: 18, costPrice: 50 }], billDiscountType: 'PERCENT', billDiscountValue: 0, extraCharges: [], roundOffEnabled: false, status: 'FINAL', payments: [], createdAt: 9500, updatedAt: 9500 },
+      ],
+      payments: [],
+      expenses: [],
+    })
+    docs.set(`showroomUsers/uid1/companies/${registry[0].id}`, { payload: remoteSnapshot, updatedAt: Date.now() + 5000, updatedBy: 'other-device' })
+    store.remove('local', `showroom_last_sync_${registry[0].id}`)
+
+    const res2 = await sync.syncNow({ all: false })
+    const partiesAfter = await db.parties.toArray()
+    const cloudParty = partiesAfter.find((p) => p.name === 'Cloud Customer')
+    const newParty = partiesAfter.find((p) => p.name === 'Nayi Cloud Party')
+    check('sync pull: cloud ki nayi party local me aa gayi', !!newParty)
+    check('sync pull: id clash hone par nayi id mili (data overwrite nahi hua)', !!cloudParty && cloudParty.id !== 1)
+    check('sync pull: cloud item bhi aa gaya', !!(await db.items.toArray()).find((i) => i.code === 'CLOUD-1'))
+
+    const inv = (await db.invoices.toArray()).find((i) => i.number === 'INV/CLOUD/1')
+    check('sync pull: invoice ka party reference theek remap hua', !!inv && !!cloudParty && inv.partyId === cloudParty.id, `partyId=${inv?.partyId} expected=${cloudParty?.id}`)
+
+    const countsAfter = { items: await db.items.count(), parties: await db.parties.count() }
+    check('sync pull: naya data juda (purana gaya nahi)', countsAfter.items > before.items && countsAfter.parties > before.parties)
+
+    check('sync: merge stats batate hain kitna juda', res2.added >= 3, `added=${res2.added} updated=${res2.updated}`)
+
+    // ---- 5) graceful: config ke bina ----
+    cloud.logoutCloud()
+    cloud.setCloudConfig(null)
+    let noCfg = ''
+    try {
+      await sync.syncNow()
+    } catch (e) {
+      noCfg = e instanceof Error ? e.message : ''
+    }
+    check('sync: bina cloud setup saaf message deta hai', noCfg.includes('Cloud setup'), noCfg.slice(0, 40))
+
+    globalThis.fetch = realFetch
+    cloud.logoutCloud()
   }
 
   root.unmount()
