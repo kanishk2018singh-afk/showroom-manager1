@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "922431095101",
+    "project_id": "showroom-manager-c0856",
+    "storage_bucket": "showroom-manager-c0856.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:922431095101:android:42027abdcd36453aaac554",
+        "android_client_info": {
+          "package_name": "com.aistudio.showroommanager.pqlmvs"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA-bsHiL-w3uyo7sb4HCrohm_OVPGpgrt4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
