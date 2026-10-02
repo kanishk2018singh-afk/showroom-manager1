@@ -360,6 +360,7 @@ fun ProductsScreen(
                     }
                 }
             }
+            }   // item block band
 
             if (products.isEmpty()) {
                 item {
