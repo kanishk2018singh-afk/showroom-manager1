@@ -5,11 +5,11 @@
 # Showroom Manager 🏪
 
 > ### 🌐 Live app — public link (kisi bhi phone/laptop me khulega)
-> **https://cdn.jsdelivr.net/gh/kanishk2018singh-afk/showroom-manager1@arena/01a0fba1-showroom-manager1/docs/index.html**
+> **https://cdn.jsdelivr.net/gh/kanishk2018singh-afk/showroom-manager1@v2.0.0/docs/index.html**
 >
-> Ek-file (offline, download karke bhi chalega): **https://cdn.jsdelivr.net/gh/kanishk2018singh-afk/showroom-manager1@arena/01a0fba1-showroom-manager1/docs/showroom-manager-app.html**
+> Ek-file (offline, download karke bhi chalega): **https://cdn.jsdelivr.net/gh/kanishk2018singh-afk/showroom-manager1@v2.0.0/docs/showroom-manager-app.html**
 >
-> GitHub Pages (clean link) ke liye: Settings → Pages → Source: *Deploy from a branch* → Branch `arena/01a0fba1-showroom-manager1`, folder `/docs` → phir link: https://kanishk2018singh-afk.github.io/showroom-manager1/
+> GitHub Pages (clean link) chahiye to: **Settings → Pages → Source: Deploy from a branch → Branch: `arena/01a0fba1-showroom-manager1`, folder `/docs` → Save.** Uske baad: https://kanishk2018singh-afk.github.io/showroom-manager1/
 
 Do hisse hain is repo me:
 
