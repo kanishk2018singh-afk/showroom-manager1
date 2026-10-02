@@ -14,7 +14,8 @@
     "verify": "tsc -b --pretty false && npm run smoke",
     "build:preview": "npm run build && node -e \"const fs=require('fs');fs.rmSync('preview-build',{recursive:true,force:true});fs.cpSync('dist','preview-build',{recursive:true})\"",
     "serve:static": "python3 -m http.server 4173 --bind 0.0.0.0 --directory preview-build",
-    "build:single": "node scripts/build-single-file.mjs"
+    "build:single": "node scripts/build-single-file.mjs",
+    "build:docs": "npm run build && node -e \"const fs=require('fs'),path=require('path');const out=path.join('..','docs');fs.rmSync(out,{recursive:true,force:true});fs.cpSync('dist',out,{recursive:true});fs.copyFileSync('showroom-manager-app.html',path.join(out,'showroom-manager-app.html'));fs.writeFileSync(path.join(out,'.nojekyll'),'');console.log('docs/ ready (GitHub Pages branch-source + jsDelivr/githack ke liye)')\""
   },
   "dependencies": {
     "dexie": "^4.2.0",
