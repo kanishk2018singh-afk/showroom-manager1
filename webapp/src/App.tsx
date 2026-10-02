@@ -4,6 +4,8 @@ import { newInvoice } from './lib/repo'
 import { fmtDate, todayISO } from './lib/format'
 import type { Business, DocType, Invoice } from './lib/types'
 import { Toaster, toast } from './components/ui'
+import { BootProblem } from './components/BootProblem'
+import { isEmbedded, storageFixMessage } from './lib/env'
 import { HomeScreen } from './screens/Home'
 import { ItemsScreen } from './screens/Items'
 import { InvoicesScreen } from './screens/Invoices'
@@ -42,11 +44,18 @@ export default function App() {
   const [lowStockFocus, setLowStockFocus] = useState(false)
   const [installEvt, setInstallEvt] = useState<{ prompt: () => Promise<void> } | null>(null)
   const [seeded, setSeeded] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   const loadBusiness = useCallback(async () => {
-    const [b, setting] = await Promise.all([getBusiness(), db.appSettings.get('onboarded')])
-    setBusiness(b)
-    setOnboarded(setting?.value === 'yes')
+    try {
+      const [b, setting] = await Promise.all([getBusiness(), db.appSettings.get('onboarded')])
+      setBusiness(b)
+      setOnboarded(setting?.value === 'yes')
+      setLoadError(null)
+    } catch (e) {
+      console.error('[showroom] business load failed:', e)
+      setLoadError(e instanceof Error ? `${e.name}: ${e.message}` : String(e))
+    }
   }, [])
 
   useEffect(() => {
@@ -98,6 +107,17 @@ export default function App() {
     else if (target === 'settings') openRoute({ name: 'settings' })
     else if (target === 'reports') setTab(3)
     else if (target === 'billing') void openNewBill('TAX_INVOICE')
+  }
+
+  if (loadError && !business) {
+    return (
+      <BootProblem
+        title="App ka data khul nahi paya"
+        message={storageFixMessage(isEmbedded())}
+        detail={loadError}
+        url={window.location.href}
+      />
+    )
   }
 
   if (!business || onboarded === null) {

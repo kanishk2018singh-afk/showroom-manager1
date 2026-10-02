@@ -101,6 +101,20 @@ npm run preview    # build को local test
 > Data browser storage (IndexedDB) में रहता है। इसलिए महीने में एक बार
 > **Settings → Backup** से JSON file ज़रूर निकाल लें। Browser data clear करने पर data चला जाएगा।
 
+## 🖥️ Preview / static build (node_modules ke bina bhi chalta hai)
+
+Kuch environments (jaise sandbox/CI) `node_modules` ko save nahi rakhte — us case me dev server
+(`npm run dev`) band ho sakta hai. Isliye ek **pre-built static** version bhi rakha jaata hai:
+
+```bash
+npm run build:preview     # dist build karke preview-build/ folder banata hai
+npm run serve:static      # http://localhost:4173  (koi node_modules nahi chahiye)
+```
+
+Build hone ke baad `webapp/preview-build/` folder kisi bhi static hosting (ya `python3 -m http.server`)
+se serve ho jata hai — app wahi pura kaam karta hai (offline bhi, kyunki service worker saath aata hai).
+Windows par serve karne ke liye `npx serve preview-build` ya VS Code ka Live Server bhi chalega.
+
 ## 🌐 Deploy
 GitHub Actions workflow `.github/workflows/deploy-webapp.yml` — `main` branch पर push होने पर webapp build होकर
 **GitHub Pages** पर deploy हो जाता है (https://<user>.github.io/showroom-manager1/)।
