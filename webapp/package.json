@@ -13,7 +13,8 @@
     "setup": "npm install",
     "verify": "tsc -b --pretty false && npm run smoke",
     "build:preview": "npm run build && node -e \"const fs=require('fs');fs.rmSync('preview-build',{recursive:true,force:true});fs.cpSync('dist','preview-build',{recursive:true})\"",
-    "serve:static": "python3 -m http.server 4173 --bind 0.0.0.0 --directory preview-build"
+    "serve:static": "python3 -m http.server 4173 --bind 0.0.0.0 --directory preview-build",
+    "build:single": "node scripts/build-single-file.mjs"
   },
   "dependencies": {
     "dexie": "^4.2.0",

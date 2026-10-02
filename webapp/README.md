@@ -115,6 +115,20 @@ Build hone ke baad `webapp/preview-build/` folder kisi bhi static hosting (ya `p
 se serve ho jata hai — app wahi pura kaam karta hai (offline bhi, kyunki service worker saath aata hai).
 Windows par serve karne ke liye `npx serve preview-build` ya VS Code ka Live Server bhi chalega.
 
+### 📄 Ek hi file wala version (single-file HTML)
+Kuch jagah (preview iframe, purane phone browser, WhatsApp par share) ke liye ek hi file sabse aasan hai:
+
+```bash
+npm run build:single      # banata hai: webapp/showroom-manager-app.html  (~790 KB)
+```
+
+Us ek file me **pura app** (JS + CSS) inline hai. Ise:
+- kisi bhi browser me seedha khol sakte hain (double-click / file:// bhi chalta hai),
+- WhatsApp/email par bhej sakte hain,
+- kisi bhi static hosting par daal sakte hain.
+
+Data usi browser me (IndexedDB) save hota hai, isliye ek hi browser me use karein.
+
 ## 🌐 Deploy
 GitHub Actions workflow `.github/workflows/deploy-webapp.yml` — `main` branch पर push होने पर webapp build होकर
 **GitHub Pages** पर deploy हो जाता है (https://<user>.github.io/showroom-manager1/)।

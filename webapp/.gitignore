@@ -11,3 +11,5 @@ coverage
 *.tsbuildinfo
 smoke/.build
 preview-build
+singlefile-dist
+showroom-manager-app.html
