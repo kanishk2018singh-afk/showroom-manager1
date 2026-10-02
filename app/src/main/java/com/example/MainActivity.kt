@@ -28,6 +28,7 @@ import androidx.compose.material.icons.outlined.Business
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material.icons.outlined.MoreHoriz
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -114,6 +115,7 @@ fun ShowroomApp(viewModel: ShowroomViewModel) {
     val syncStatusMessage by viewModel.syncStatusMessage.collectAsStateWithLifecycle()
     val pendingSyncCount by viewModel.pendingSyncCount.collectAsStateWithLifecycle()
     val cloudSyncState by viewModel.cloudSyncState.collectAsStateWithLifecycle()
+    val isAuthReady by viewModel.isAuthReady.collectAsStateWithLifecycle()
 
     // Modals & Dialogs
     val viewingProduct by viewModel.viewingProduct.collectAsStateWithLifecycle()
@@ -138,6 +140,28 @@ fun ShowroomApp(viewModel: ShowroomViewModel) {
 
     // ---------- Auth gate: login hone tak existing login screen ----------
     var continueOffline by remember { mutableStateOf(false) }
+
+    // Firebase session restore (cold start) ka chhota wait — login screen ka flash nahi hota
+    if (viewModel.cloudConfigured && !isAuthReady) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                CircularProgressIndicator()
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    "Login check ho raha hai…",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        return
+    }
+
     if (viewModel.cloudConfigured && currentUser == null && !continueOffline) {
         CloudLoginScreen(
             userProfile = userProfile,

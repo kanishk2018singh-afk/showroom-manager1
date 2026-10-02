@@ -30,8 +30,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -80,12 +80,17 @@ class ShowroomViewModel(application: Application) : AndroidViewModel(application
         // Internet wapas aane par pending data apne aap upload ho jaye
         registerNetworkRetry(application)
 
-        // App khulte hi: agar login hai to cloud se data milao (offline-first, best effort)
-        viewModelScope.launch(Dispatchers.IO) {
-            if (FirebaseAuthManager.isConfigured && FirebaseAuthManager.currentUser != null) {
-                runCatching { repository.syncNow() }
-                    .onFailure { android.util.Log.w("ShowroomViewModel", "startup sync failed: ${it.message}") }
-            }
+        // Login session detection: Firebase khud session restore karta hai (cold start par async),
+        // isliye auth state ko reactively sunte hain — login/logout/restore sab yahin se handle hota hai.
+        viewModelScope.launch {
+            FirebaseAuthManager.authStateFlow
+                .catch { e -> android.util.Log.w("ShowroomViewModel", "authStateFlow error: ${e.message}") }
+                .collect { user -> onSessionChanged(user) }
+        }
+
+        // Sync state ko UI spinner ke saath jodo
+        viewModelScope.launch {
+            repository.syncState.collect { st -> if (st != null) _isSyncingFirestore.value = st.isSyncing }
         }
 
         // Har 2 minute me halka retry (sirf jab pending data ho)
@@ -731,6 +736,13 @@ class ShowroomViewModel(application: Application) : AndroidViewModel(application
     private val _currentUser = MutableStateFlow<FirebaseUser?>(FirebaseAuthManager.currentUser)
     val currentUser: StateFlow<FirebaseUser?> = _currentUser.asStateFlow()
 
+    /** Firebase session check poora hua? (cold start par login screen ka flash rokta hai) */
+    private val _isAuthReady = MutableStateFlow(!FirebaseAuthManager.isConfigured)
+    val isAuthReady: StateFlow<Boolean> = _isAuthReady.asStateFlow()
+
+    /** Kis uid ka initial sync ho chuka hai (duplicate sync se bachne ke liye) */
+    private var lastSyncedUid: String? = null
+
     private val _userProfile = MutableStateFlow<ShowroomUserProfile?>(null)
     val userProfile: StateFlow<ShowroomUserProfile?> = _userProfile.asStateFlow()
 
@@ -796,7 +808,6 @@ class ShowroomViewModel(application: Application) : AndroidViewModel(application
             res.onSuccess { user ->
                 _currentUser.value = user
                 _syncStatusMessage.value = "Signed in as ${user.displayName ?: user.email}"
-                syncAfterLogin()
             }.onFailure { err ->
                 _syncStatusMessage.value = "Sign in error: ${err.message}"
             }
@@ -810,7 +821,6 @@ class ShowroomViewModel(application: Application) : AndroidViewModel(application
             res.onSuccess { user ->
                 _currentUser.value = user
                 _syncStatusMessage.value = "Signed in successfully"
-                syncAfterLogin()
             }.onFailure { err ->
                 _syncStatusMessage.value = "Error: ${err.message}"
             }
@@ -824,7 +834,6 @@ class ShowroomViewModel(application: Application) : AndroidViewModel(application
             res.onSuccess { user ->
                 _currentUser.value = user
                 _syncStatusMessage.value = "Account created!"
-                syncAfterLogin()
             }.onFailure { err ->
                 _syncStatusMessage.value = "Error: ${err.message}"
             }
@@ -838,23 +847,39 @@ class ShowroomViewModel(application: Application) : AndroidViewModel(application
             res.onSuccess { user ->
                 _currentUser.value = user
                 _syncStatusMessage.value = "Signed in as Guest"
-                syncAfterLogin()
             }.onFailure { err ->
                 _syncStatusMessage.value = "Error: ${err.message}"
             }
         }
     }
 
-    /** Login ke baad: initials sync (cloud <-> Room merge) — UI block nahi hota */
-    private fun syncAfterLogin() {
+    /**
+     * Auth state badalne par (login / logout / session restore).
+     * Naye user ke liye ek hi baar initial sync (pull -> merge -> upload) chalata hai.
+     */
+    private fun onSessionChanged(user: FirebaseUser?) {
+        _currentUser.value = user
+        _isAuthReady.value = true
+
+        if (user == null) {
+            lastSyncedUid = null
+            _userProfile.value = null
+            return
+        }
+        if (user.uid == lastSyncedUid) return // isi user ka sync chal chuka hai
+        lastSyncedUid = user.uid
+
+        _isSyncingFirestore.value = true
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val res = repository.syncNow()
                 withContext(Dispatchers.Main) {
                     _syncStatusMessage.value = res.message
+                    _isSyncingFirestore.value = false
                 }
             } catch (e: Exception) {
                 android.util.Log.w("ShowroomViewModel", "post-login sync failed: ${e.message}")
+                withContext(Dispatchers.Main) { _isSyncingFirestore.value = false }
             }
         }
     }
@@ -863,6 +888,7 @@ class ShowroomViewModel(application: Application) : AndroidViewModel(application
         FirebaseAuthManager.signOut()
         _currentUser.value = null
         _userProfile.value = null
+        lastSyncedUid = null
         _syncStatusMessage.value = "Signed out"
     }
 
