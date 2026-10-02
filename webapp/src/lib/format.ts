@@ -100,16 +100,15 @@ const ONES = [
 ]
 const TENS = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety']
 
+/** 430 → "Four Hundred and Thirty", 45 → "Forty Five", 7 → "Seven" */
 const under1000 = (n: number): string => {
-  let s = ''
-  let x = n
-  if (x >= 100) {
-    s += ONES[Math.floor(x / 100)] + ' Hundred '
-    x %= 100
-  }
-  if (x > 0 && x < 20) s += ONES[x]
-  else if (x >= 20) s += TENS[Math.floor(x / 10)] + (x % 10 ? ' ' + ONES[x % 10] : '')
-  return s.trim()
+  const hundreds = Math.floor(n / 100)
+  const rest = n % 100
+  const restWords =
+    rest === 0 ? '' : rest < 20 ? ONES[rest] : TENS[Math.floor(rest / 10)] + (rest % 10 ? ' ' + ONES[rest % 10] : '')
+  if (hundreds && restWords) return `${ONES[hundreds]} Hundred and ${restWords}`
+  if (hundreds) return `${ONES[hundreds]} Hundred`
+  return restWords
 }
 
 export const amountInWords = (amount: number): string => {
@@ -128,12 +127,7 @@ export const amountInWords = (amount: number): string => {
   if (lakh) parts.push(under1000(lakh) + ' Lakh')
   if (thousand) parts.push(under1000(thousand) + ' Thousand')
   if (n) parts.push(under1000(n))
-  let words = parts.join(' ').replace(/\s+/g, ' ').trim()
-  if (rupees > 0 && n > 0 && n < 100 && (crore || lakh || thousand)) {
-    // natural reading: "One Thousand and Fifty"
-    const idx = words.lastIndexOf(' ')
-    words = idx > 0 ? words.slice(0, idx) + ' and ' + words.slice(idx + 1) : words
-  }
+  const words = parts.join(' ').replace(/\s+/g, ' ').trim()
   let out = 'Rupees ' + words
   if (paise > 0) out += ' and ' + under1000(paise) + ' Paise'
   return out + ' Only'

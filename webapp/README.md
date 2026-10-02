@@ -80,6 +80,18 @@ GitHub Actions workflow `.github/workflows/deploy-webapp.yml` — `main` branch 
 **GitHub Pages** पर deploy हो जाता है (https://<user>.github.io/showroom-manager1/)।
 इसी HTTPS link को phone में खोलकर install किया जा सकता है।
 
+## 🧪 Testing (smoke test)
+
+Poore billing flow ka automated test hai (jsdom + fake IndexedDB) — isi se data layer aur UI dono check hote hain:
+
+```bash
+npm run smoke
+```
+
+Ye 46 checks chalata hai: invoice maths (GST/CGST/SGST/IGST, bill discount, round off), number series,
+stock cut/restore, payment recording, khata balance, credit note, CSV import/export, backup-restore,
+aur UI flow (home → items → reports → billing → item add → save → invoice view → print → UPI QR → payment).
+
 ## 🧱 Tech
 Vite + React 19 + TypeScript + Tailwind CSS 4 + Dexie (IndexedDB) + vite-plugin-pwa + qrcode.react + html2canvas-pro
 
