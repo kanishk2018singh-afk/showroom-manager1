@@ -38,6 +38,19 @@ Do hisse hain is repo me:
 | `app/` | Purani Android app (Kotlin + Compose) — product catalogue, pricing, AI studio | Android Studio, ya GitHub Actions se APK |
 | `web/` | Purana single-file web catalogue demo (`web/index.html`) | browser me khol lein |
 
+### 🔐 Android app me Login + Cloud Sync (Firebase)
+
+Android app me ab **Firebase Authentication** (email / Google / guest) aur **offline-first Firestore sync** hai:
+
+- Login karne ke baad aapka catalogue `users/{uid}/products|companies|categories/...` me sync hota hai
+  (Room local database primary hai — internet na ho to bhi app poori chalti hai, data baad me apne aap upload hota hai).
+- Password reset email, persistent session, aur pending-upload retry sabhi included hain.
+- **Ek baar setup karein:** Firebase Console → Authentication → Email/Password (aur Google chahiye to Google + SHA-1) enable karein,
+  aur [`firestore.rules`](firestore.rules) publish karein (`firebase deploy --only firestore:rules`).
+- Poori detail + 13 test scenarios: [`docs/ANDROID_FIREBASE_SYNC.md`](docs/ANDROID_FIREBASE_SYNC.md)
+
+---
+
 Web app ke baare me poori jankari: [`webapp/README.md`](webapp/README.md)
 
 **Web app chalayein / test karein (repo root se):**
