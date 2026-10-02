@@ -4,12 +4,19 @@
 
 # Showroom Manager 🏪
 
-> ### 🌐 Live app — public link (kisi bhi phone/laptop me khulega)
-> **https://cdn.jsdelivr.net/gh/kanishk2018singh-afk/showroom-manager1@v2.0.0/docs/index.html**
+> ### 🌐 App browser me kholein
 >
-> Ek-file (offline, download karke bhi chalega): **https://cdn.jsdelivr.net/gh/kanishk2018singh-afk/showroom-manager1@v2.0.0/docs/showroom-manager-app.html**
+> **1) GitHub Pages (recommended, clean link):**
+> Settings → Pages → Source: *Deploy from a branch* → Branch: `arena/01a0fba1-showroom-manager1`, folder `/docs` → Save.
+> Phir link: **https://kanishk2018singh-afk.github.io/showroom-manager1/**
 >
-> GitHub Pages (clean link) chahiye to: **Settings → Pages → Source: Deploy from a branch → Branch: `arena/01a0fba1-showroom-manager1`, folder `/docs` → Save.** Uske baad: https://kanishk2018singh-afk.github.io/showroom-manager1/
+> **2) Bina setup, abhi ke liye (ek extra click):**
+> https://rawcdn.githack.com/kanishk2018singh-afk/showroom-manager1/v2.0.0/docs/index.html
+> (pehle "One more step → Open the page" aata hai, us par click karein)
+>
+> **3) Ek-file offline version:** `docs/showroom-manager-app.html` — download karke browser me kholein (server ki zarurat nahi).
+>
+> ⚠️ Note: jsDelivr/CDN par HTML files `text/plain` me milti hain (security policy), isliye un links par source code dikhta hai — app nahi.
 
 Do hisse hain is repo me:
 
