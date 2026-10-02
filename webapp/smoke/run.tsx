@@ -14,6 +14,8 @@ const check = (name: string, ok: boolean, info?: string) => {
 }
 
 async function setupDom(): Promise<JSDOM> {
+  // note: jsdom ka localStorage/sessionStorage ho to use karo (warna lib ka
+  // in-memory fallback chalta hai)
   const dom = new JSDOM(
     `<!doctype html><html><body><div id="boot"></div><div id="root"></div><div id="print-root"></div></body></html>`,
     { url: 'http://localhost:5173/', pretendToBeVisual: true },
@@ -499,6 +501,92 @@ async function main() {
 
   const appErrors = errors.filter((e) => String(e).includes('Error') || String(e).includes('Cannot'))
   check('react: no render errors', appErrors.length === 0, appErrors.slice(0, 2).map(String).join(' | '))
+
+
+
+  // ---------------- Login screen (UI) ----------------
+  {
+    const { addUser, deleteUser, logout } = await import('../src/lib/auth')
+    const React = await import('react')
+    const { createRoot } = await import('react-dom/client')
+    const { LoginScreen } = await import('../src/screens/Auth')
+
+    const uid = await addUser({ name: 'Smoke Login', role: 'OWNER', pin: '1234' })
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+    const loginRoot = createRoot(host)
+    loginRoot.render(React.createElement(LoginScreen, { onLoggedIn: () => {} }))
+    await wait(800)
+    html = host.innerHTML
+    check('login UI: user list dikhti hai', html.includes('Kaun login kar raha hai') && html.includes('Smoke Login'))
+
+    const userBtn = [...host.querySelectorAll('button')].find((b) => (b.textContent ?? '').includes('Smoke Login'))
+    click(dom, userBtn)
+    await wait(500)
+    html = host.innerHTML
+    check('login UI: PIN pad khul gaya', html.includes('PIN daalein') && !!host.querySelector('.pin-key'))
+
+    for (const d of ['9', '9', '9', '9']) {
+      const key = [...host.querySelectorAll('button')].find((b) => b.textContent?.trim() === d)
+      click(dom, key)
+      await wait(140)
+    }
+    await wait(800)
+    html = host.innerHTML
+    check('login UI: galat PIN par saaf error dikhta hai', html.includes('PIN galat hai'))
+
+    logout()
+    loginRoot.unmount()
+    host.remove()
+    await deleteUser(uid)
+    await wait(200)
+  }
+
+  // ---------------- Company / Firm + Users & login (naya) ----------------
+  {
+    const { listCompanies, createCompany, activeCompany, setActiveCompany, deleteCompany, dbNameFor } =
+      await import('../src/lib/company')
+    const { addUser, tryLogin, checkLogin, logout, setUserPin, deleteUser, activeUsers } =
+      await import('../src/lib/auth')
+
+    const base = listCompanies()
+    check('company: pehli company (default) list me hai', base.length >= 1 && base.some((c) => c.id === 'default'))
+
+    const nayi = createCompany('Test Sanitary — Sikar Road')
+    check('company: nayi company ban gayi', listCompanies().some((c) => c.id === nayi.id), nayi.name)
+    check('company: har company ka alag database naam', dbNameFor(nayi.id) !== dbNameFor('default'))
+
+    setActiveCompany(nayi.id)
+    check('company: switch se active company badal gayi', activeCompany().id === nayi.id, activeCompany().name)
+    setActiveCompany('default')
+    check('company: wapas default par aa gaye', activeCompany().id === 'default')
+
+    // users + login (default company me)
+    const beforeGate = await checkLogin()
+    const uid = await addUser({ name: 'Ravi (Test)', role: 'STAFF', pin: '1234' })
+    check('users: naya user ban gaya', (await activeUsers()).some((u) => u.id === uid))
+    check('login: user banne par gate "login" maangta hai', (await checkLogin()) === 'login', `pehle: ${beforeGate}`)
+
+    const wrong = await tryLogin(uid, '9999')
+    check('login: galat PIN se login nahi hota', wrong === false && (await checkLogin()) === 'login')
+
+    const right = await tryLogin(uid, '1234')
+    check('login: sahi PIN se login ho jata hai', right === true && (await checkLogin()) === 'ok')
+
+    logout()
+    check('login: logout par session hat gaya', (await checkLogin()) === 'login')
+
+    // owner ka PIN reset + cleanup
+    await setUserPin(uid, '5555')
+    const afterReset = await tryLogin(uid, '5555')
+    check('login: PIN badalne ke baad naya PIN chalta hai', afterReset === true)
+    logout()
+    await deleteUser(uid)
+    check('users: user hatane par login band ho jata hai (app khulti hai)', (await checkLogin()) === 'off')
+
+    deleteCompany(nayi.id)
+    check('company: test company hat gayi', !listCompanies().some((c) => c.id === nayi.id))
+  }
 
   root.unmount()
 

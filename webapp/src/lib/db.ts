@@ -1,4 +1,5 @@
 import Dexie, { type Table } from 'dexie'
+import type { User } from './auth'
 import type {
   AppSetting,
   Business,
@@ -11,6 +12,7 @@ import type {
   PartyPayment,
 } from './types'
 import { DOC_TYPES } from './types'
+import { activeCompany, activeCompanyId, dbNameFor } from './company'
 
 export class ShowroomDB extends Dexie {
   business!: Table<Business, number>
@@ -21,9 +23,11 @@ export class ShowroomDB extends Dexie {
   appSettings!: Table<AppSetting, string>
   payments!: Table<PartyPayment, number>
   expenses!: Table<Expense, number>
+  users!: Table<User, number>
 
   constructor() {
-    super('showroom_manager_v2')
+    // Har company ka apna database (firm switch = alag data)
+    super(dbNameFor(activeCompanyId()))
     this.version(1).stores({
       business: '++id',
       items: '++id, name, code, barcode, brand, category, updatedAt',
@@ -37,6 +41,10 @@ export class ShowroomDB extends Dexie {
     this.version(2).stores({
       payments: '++id, date, direction, partyId, mode, createdAt',
       expenses: '++id, date, category, mode, createdAt',
+    })
+    // v3: users + login (company ke apne staff)
+    this.version(3).stores({
+      users: '++id, name, role, createdAt',
     })
   }
 }
@@ -111,8 +119,9 @@ const SAMPLE_ITEMS: Omit<Item, 'id'>[] = [
 
 export async function seedDatabase(): Promise<void> {
   await db.open()
+  const company = activeCompany()
   const businessCount = await db.business.count()
-  if (businessCount === 0) await db.business.add({ ...DEFAULT_BUSINESS })
+  if (businessCount === 0) await db.business.add({ ...DEFAULT_BUSINESS, name: company.name })
 
   // make sure every document type has a number series (also adds newly introduced types)
   for (const def of DEFAULT_DOC_SETTINGS) {
@@ -120,8 +129,9 @@ export async function seedDatabase(): Promise<void> {
     if (!existing) await db.docSettings.put({ ...def })
   }
 
+  // Sample items sirf pehli (default) company me — nayi company khaali shuru hoti hai
   const itemCount = await db.items.count()
-  if (itemCount === 0) await db.items.bulkAdd(SAMPLE_ITEMS as Item[])
+  if (itemCount === 0 && company.id === 'default') await db.items.bulkAdd(SAMPLE_ITEMS as Item[])
 
   const defaults: AppSetting[] = [
     { key: 'onboarded', value: 'no' },

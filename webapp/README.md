@@ -115,6 +115,21 @@ Build hone ke baad `webapp/preview-build/` folder kisi bhi static hosting (ya `p
 se serve ho jata hai — app wahi pura kaam karta hai (offline bhi, kyunki service worker saath aata hai).
 Windows par serve karne ke liye `npx serve preview-build` ya VS Code ka Live Server bhi chalega.
 
+
+### 🔐 Users & login (offline)
+
+- Settings → **👤 Users & login** → naya user banayein (naam, role, 4-6 ank ka PIN).
+- **Jab tak koi user na bane, app bina login khulti hai** — user banate hi agla khulne par PIN maangta hai.
+- **Owner** PIN bhool jaye to login screen se naya PIN bana sakta hai; staff ko owner se naya PIN lena hoga.
+- PIN ka hash phone me hi rehta hai (SHA-256). Login/session tab band hone par khatam.
+
+### 🏢 Company / Firm (multi-company)
+
+- Settings → **🏢 Company / Firm** → **switch** ya **＋ Nayi company** banayein.
+- Har company ka **pura data alag** hota hai (alag IndexedDB database): items, bills, khata, payments, expenses, users.
+- Nayi company **khaali** shuru hoti hai (sample items sirf pehli company me aate hain) aur uska naam onboarding me apne aap aa jata hai.
+- Company switch karte hi app reload hoti hai aur us company ka data khul jata hai.
+
 ### 📄 Ek hi file wala version (single-file HTML)
 Kuch jagah (preview iframe, purane phone browser, WhatsApp par share) ke liye ek hi file sabse aasan hai:
 

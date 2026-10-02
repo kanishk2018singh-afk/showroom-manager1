@@ -5,6 +5,7 @@ import { exportBackup, importBackup, wipeAllData } from '../lib/repo'
 import { download, readFileAsDataUrl, readFileAsText } from '../lib/format'
 import { runSelfTest, type SelfTestResult } from '../lib/selftest'
 import { ConfirmDialog, Segmented, Sheet, toast } from '../components/ui'
+import { AccountCard } from '../components/AccountCard'
 import type { Business, DocSetting } from '../lib/types'
 import { DOC_TYPES, STATES } from '../lib/types'
 
@@ -208,6 +209,9 @@ export function SettingsScreen({
           </button>
         </div>
       </div>
+
+      {/* Company / Firm + Users & login */}
+      <AccountCard />
 
       {/* Bill numbering */}
       <div className="card mt-3">

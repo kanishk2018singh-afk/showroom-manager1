@@ -274,3 +274,35 @@ body {
     width: 100% !important;
   }
 }
+
+/* ---------- Login PIN pad + chips (company / users) ---------- */
+.pin-key {
+  display: grid;
+  place-items: center;
+  height: 52px;
+  border-radius: 16px;
+  background: #f1f5f9;
+  font-size: 20px;
+  font-weight: 700;
+  color: #0f172a;
+  transition: background 0.12s ease, transform 0.06s ease;
+}
+.pin-key:active {
+  background: #e2e8f0;
+  transform: scale(0.97);
+}
+.chip-green {
+  background: #dcfce7;
+  color: #15803d;
+  font-weight: 700;
+}
+.chip-blue {
+  background: #e0e7ff;
+  color: #3730a3;
+  font-weight: 700;
+}
+.chip-amber {
+  background: #fef3c7;
+  color: #b45309;
+  font-weight: 700;
+}

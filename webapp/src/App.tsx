@@ -4,6 +4,8 @@ import { newInvoice } from './lib/repo'
 import { fmtDate, todayISO } from './lib/format'
 import type { Business, DocType, Invoice } from './lib/types'
 import { Toaster, toast } from './components/ui'
+import { checkLogin } from './lib/auth'
+import { LoginScreen } from './screens/Auth'
 import { BootProblem } from './components/BootProblem'
 import { isEmbedded, storageFixMessage } from './lib/env'
 import { HomeScreen } from './screens/Home'
@@ -45,6 +47,18 @@ export default function App() {
   const [installEvt, setInstallEvt] = useState<{ prompt: () => Promise<void> } | null>(null)
   const [seeded, setSeeded] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
+  // login gate: 'off' = koi user nahi, 'login' = PIN chahiye, 'ok' = andar
+  const [gate, setGate] = useState<'loading' | 'off' | 'login' | 'ok'>('loading')
+
+  const refreshGate = useCallback(async () => {
+    try {
+      const g = await checkLogin()
+      setGate(g === 'off' ? 'off' : g === 'ok' ? 'ok' : 'login')
+    } catch (e) {
+      console.error('[showroom] login check failed:', e)
+      setGate('off')
+    }
+  }, [])
 
   const loadBusiness = useCallback(async () => {
     try {
@@ -61,7 +75,8 @@ export default function App() {
   useEffect(() => {
     void loadBusiness()
     void db.items.count().then((c) => setSeeded(c > 0))
-  }, [loadBusiness])
+    void refreshGate()
+  }, [loadBusiness, refreshGate])
 
   useEffect(() => {
     const onPop = () => setRoute((r) => (r.name === 'none' ? r : { name: 'none' }))
@@ -134,6 +149,23 @@ export default function App() {
         <Onboarding business={business} onDone={() => void loadBusiness()} />
         <Toaster />
       </>
+    )
+  }
+
+  if (gate === 'login') {
+    return (
+      <>
+        <LoginScreen onLoggedIn={() => setGate('ok')} />
+        <Toaster />
+      </>
+    )
+  }
+
+  if (gate === 'loading') {
+    return (
+      <div className="app-shell items-center justify-center">
+        <div className="mt-24 text-center text-sm text-slate-500">Login taiyaar ho raha hai…</div>
+      </div>
     )
   }
 
