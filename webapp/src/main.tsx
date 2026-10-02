@@ -1,8 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
-import App from './App'
-import { seedDatabase } from './lib/db'
 import { canUseStorage, isEmbedded, storageFixMessage } from './lib/env'
 import { BootProblem } from './components/BootProblem'
 
@@ -34,25 +32,39 @@ if (!rootEl) {
     const msg = e.reason instanceof Error ? e.reason.message : String(e.reason ?? '')
     console.error('[showroom] unhandled rejection:', e.reason)
     if (/indexeddb|storage|security/i.test(msg)) {
-      showProblem(
-        'App ko storage nahi mila',
-        storageFixMessage(isEmbedded()),
-        msg,
-      )
+      showProblem('App ko storage nahi mila', storageFixMessage(isEmbedded()), msg)
     }
   })
 
   async function start() {
     try {
+      // Step 1 — storage check. Preview iframe / incognito me browser IndexedDB block kar deta hai.
+      // Aise me app ko band nahi karte: in-memory database par chala dete hain (Demo mode).
+      let demo = false
       const storageOk = await canUseStorage()
       if (!storageOk) {
-        showProblem(
-          'App ko storage nahi mila',
-          storageFixMessage(isEmbedded()),
-          'indexedDB: blocked / unavailable',
-        )
-        return
+        try {
+          // @ts-ignore -- "fake-indexeddb/auto" ka type mapping package ke exports me nahi hai
+          await import('fake-indexeddb/auto')
+          demo = true
+          console.warn('[showroom] IndexedDB block hai — demo (in-memory) mode on')
+        } catch (err) {
+          console.error('Demo shim load nahi hua', err)
+          showProblem(
+            'App ko storage nahi mila',
+            storageFixMessage(isEmbedded()),
+            err instanceof Error ? `${err.name}: ${err.message}` : String(err),
+          )
+          return
+        }
       }
+
+      // Step 2 — app + database (ye ab dynamic import hain, taaki demo shim pehle lag jaye)
+      const [{ default: App }, { seedDatabase }, { DemoBanner }] = await Promise.all([
+        import('./App'),
+        import('./lib/db'),
+        import('./components/DemoBanner'),
+      ])
 
       try {
         await seedDatabase()
@@ -70,6 +82,7 @@ if (!rootEl) {
       root.render(
         <StrictMode>
           <App />
+          {demo ? <DemoBanner embedded={isEmbedded()} /> : null}
         </StrictMode>,
       )
       requestAnimationFrame(hideBoot)
