@@ -59,7 +59,10 @@ Naya data kabhi blindly overwrite nahi hota. Pending (`isSynced = false`) rows p
 - Login hone tak **login screen** dikhti hai; login ke turant baad dashboard + initial sync (pull → merge → upload).
 - Password reset email: "Password bhool gaye? Reset email bhejein" → Firebase reset mail.
 - Password kabhi Room/Firestore me save **nahi** hota (sirf Firebase Auth ke paas).
-- Session persistent hai (app band karke kholne par login bana rehta hai).
+- Session persistent hai (app band karke kholne par login bana rehta hai). Session detection
+  `FirebaseAuthManager.authStateFlow` se hoti hai — cold start par Firebase jab session restore karta hai,
+  app usi waqt dashboard dikhati hai (bech me chhota "Login check ho raha hai…" indicator) aur
+  **har naye uid ke liye sirf ek baar** initial sync chalta hai (duplicate sync nahi).
 - `google-services.json` na ho / Firebase configure na ho → app crash nahi karti, **poora offline** chalti hai, aur
   login screen par ek clear message dikhta hai. "Login ke bina chalayein (offline)" option bhi hai.
 - Google Sign-In ke liye Firebase Console me **Google provider on** + **SHA-1** add hona chahiye.
@@ -84,6 +87,7 @@ Naya data kabhi blindly overwrite nahi hota. Pending (`isSynced = false`) rows p
 |---|---|---|---|
 | 1 | Naya account (email) | Login screen → Sign up → email/password/naam | Account ban jata hai, dashboard khulta hai, initial sync chalta hai |
 | 2 | Wapas login | App band karke kholo → sign out → wapas sign in | Data wapas aa jata hai (persistent session + cloud pull) |
+| 2b | Cold-start session restore | Login karke app band karo → wapas kholo | Chhota "Login check ho raha hai…" → seedha dashboard (login screen nahi), auto sync |
 | 3 | Galat password | Galat password se login | Friendly error, crash nahi, data safe |
 | 4 | Password reset | "Password bhool gaye?" → email daalo | Reset email ka message (mail inbox me aata hai) |
 | 5 | Offline login-bypass | "Login ke bina chalayein (offline)" | App normal chalti hai, sirf cloud features off |
@@ -107,3 +111,9 @@ Naya data kabhi blindly overwrite nahi hota. Pending (`isSynced = false`) rows p
 - `sync_queue` (nayi table): pending deletes (`collectionName`, `docId`, `operation`, `attempts`)
 
 `MIGRATION_2_3` safe hai — purana data delete nahi hota (fallback destructive migration sirf emergency ke liye hai).
+
+## 10. Ek device par doosra account (jaan lena zaroori)
+
+Sync merge natural keys par hota hai (product → `companyId + code`, party/company/category → naam). Agar ek hi device par
+**doosre account** se login karein, to local Room data us naye account ke cloud me bhi merge ho jayega (delete kuch nahi hota).
+Personal use (ek hi account) me ye normal hai; agar doosra account use karna ho to pehle Settings se data export/backup le lein.
