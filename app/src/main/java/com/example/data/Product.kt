@@ -45,7 +45,9 @@ data class Product(
     val purchasePrice: Double = 0.0,
     val stockQuantity: Int = 1,
     val notes: String = "",
-    val updatedAt: Long = System.currentTimeMillis()
+    val updatedAt: Long = System.currentTimeMillis(),
+    /** Cloud sync: false = Firestore par upload pending hai */
+    val isSynced: Boolean = false
 ) {
     val pricing: PricingBreakdown
         get() = PricingCalculator.calculate(

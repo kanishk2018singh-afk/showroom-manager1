@@ -45,4 +45,30 @@ interface CompanyDao {
 
     @Query("SELECT COUNT(*) FROM companies")
     suspend fun getCompanyCount(): Int
+
+    // ---------- Cloud sync (Firestore) ke liye ----------
+
+    @Query("SELECT * FROM companies")
+    suspend fun getAllCompaniesOnce(): List<Company>
+
+    @Query("SELECT * FROM companies WHERE isSynced = 0 LIMIT :limit")
+    suspend fun getUnsyncedCompanies(limit: Int = 500): List<Company>
+
+    @Query("SELECT COUNT(*) FROM companies WHERE isSynced = 0")
+    fun unsyncedCountFlow(): Flow<Int>
+
+    @Query("SELECT COUNT(*) FROM companies WHERE isSynced = 0")
+    suspend fun unsyncedCount(): Int
+
+    @Query("UPDATE companies SET isSynced = :synced WHERE id IN (:ids)")
+    suspend fun markSynced(ids: List<Long>, synced: Boolean = true)
+
+    @Query("UPDATE companies SET isSynced = 0 WHERE id = :id")
+    suspend fun markUnsynced(id: Long)
+
+    @Query("UPDATE companies SET isSynced = 0")
+    suspend fun markAllUnsynced()
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertFromCloud(company: Company): Long
 }

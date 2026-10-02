@@ -11,7 +11,6 @@ import com.example.data.Product
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.firebase.FirebaseApp
-import com.google.firebase.FirebaseOptions
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
@@ -39,34 +38,44 @@ object FirebaseAuthManager {
 
     private const val TAG = "FirebaseAuthManager"
 
+    @Volatile
+    private var appContext: Context? = null
+
+    /**
+     * Firebase ko sirf `google-services.json` se initialize karte hain.
+     * Config na ho to app crash nahi karti — bas cloud features off rehte hain
+     * (poora app offline chalta rehta hai).
+     */
     fun init(context: Context) {
-        if (FirebaseApp.getApps(context).isEmpty()) {
-            try {
-                FirebaseApp.initializeApp(context)
-                Log.i(TAG, "Standard FirebaseApp initialized successfully.")
-            } catch (e: Exception) {
-                Log.d(TAG, "Default Firebase options not found in resources: ${e.message}")
-                try {
-                    val options = FirebaseOptions.Builder()
-                        .setApplicationId(context.packageName)
-                        .setApiKey("AIzaSyFakeKeyForShowroomDemo1234567890")
-                        .setProjectId("showroom-demo-app")
-                        .build()
-                    FirebaseApp.initializeApp(context, options)
-                    Log.i(TAG, "Initialized Firebase with fallback demo options.")
-                } catch (fallbackError: Exception) {
-                    Log.w(TAG, "Fallback Firebase initialization failed: ${fallbackError.message}")
-                }
-            }
+        appContext = context.applicationContext
+        if (FirebaseApp.getApps(context).isNotEmpty()) return
+        try {
+            FirebaseApp.initializeApp(context)
+            Log.i(TAG, "Firebase initialized (google-services.json mil gaya)")
+        } catch (e: Exception) {
+            Log.w(TAG, "Firebase configured nahi hai — app offline chalega: ${e.message}")
         }
     }
 
     fun isFirebaseInitialized(): Boolean {
         return try {
-            FirebaseApp.getApps(com.google.firebase.FirebaseApp.getInstance().applicationContext).isNotEmpty()
+            FirebaseApp.getApps(appContext ?: return false).isNotEmpty()
         } catch (e: Throwable) {
             false
         }
+    }
+
+    /** true = google-services.json mil gaya, cloud login/sync available hai */
+    val isConfigured: Boolean
+        get() = isFirebaseInitialized()
+
+    /** Google Sign-In ke liye web client id (google-services.json se aata hai) */
+    private fun webClientId(): String? = try {
+        val ctx = appContext ?: return null
+        val resId = ctx.resources.getIdentifier("default_web_client_id", "string", ctx.packageName)
+        if (resId == 0) null else ctx.getString(resId).takeIf { it.isNotBlank() }
+    } catch (e: Exception) {
+        null
     }
 
     val auth: FirebaseAuth?
@@ -78,7 +87,7 @@ object FirebaseAuthManager {
 
     val firestore: FirebaseFirestore?
         get() = try {
-            FirebaseFirestore.getInstance()
+            if (!isConfigured) null else FirebaseFirestore.getInstance()
         } catch (e: Throwable) {
             null
         }
@@ -120,11 +129,14 @@ object FirebaseAuthManager {
         try {
             val credentialManager = CredentialManager.create(activity)
 
-            // Web Client ID: can be passed or empty for default discovery
+            // Web Client ID google-services.json se aata hai (R.string.default_web_client_id)
+            val serverClientId = webClientId() ?: return@withContext Result.failure(
+                IllegalStateException("Google Sign-In ke liye google-services.json me OAuth web client id chahiye. Filhaal email/password se sign in karein.")
+            )
             val googleIdOption = GetGoogleIdOption.Builder()
                 .setFilterByAuthorizedAccounts(false)
                 .setAutoSelectEnabled(false)
-                .setServerClientId("dummy-client-id.apps.googleusercontent.com") // Handled gracefully if not set
+                .setServerClientId(serverClientId)
                 .build()
 
             val request = GetCredentialRequest.Builder()
@@ -204,9 +216,35 @@ object FirebaseAuthManager {
         }
     }
 
-    fun signOut() {
-        auth?.signOut()
+    /**
+     * Password reset email (Firebase Auth).
+     */
+    suspend fun sendPasswordReset(email: String): Result<Unit> = withContext(Dispatchers.IO) {
+        val currentAuth = auth ?: return@withContext Result.failure(
+            IllegalStateException("Firebase configured nahi hai (google-services.json daalein).")
+        )
+        if (email.isBlank() || !email.contains("@")) {
+            return@withContext Result.failure(IllegalArgumentException("Sahi email address likhein"))
+        }
+        try {
+            currentAuth.sendPasswordResetEmail(email.trim()).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "Password reset failed: ${e.message}", e)
+            Result.failure(e)
+        }
     }
+
+    fun signOut() {
+        try {
+            auth?.signOut()
+        } catch (e: Exception) {
+            Log.w(TAG, "signOut failed: ${e.message}")
+        }
+    }
+
+    /** Current logged-in user (persistent session — Firebase khud sambhalta hai) */
+    fun currentUserId(): String? = currentUser?.uid
 
     /**
      * Saves or updates the user profile record in Firestore under `users/{uid}`.

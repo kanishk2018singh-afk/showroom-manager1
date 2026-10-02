@@ -1,11 +1,17 @@
 package com.example
 
+import android.app.Activity
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBars
@@ -30,12 +36,17 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.auth.ShowroomUserProfile
 import com.example.ui.ShowroomViewModel
 import com.example.ui.StockFilter
 import com.example.ui.components.AccountSyncDialog
@@ -101,6 +112,8 @@ fun ShowroomApp(viewModel: ShowroomViewModel) {
     val isAccountDialogOpen by viewModel.isAccountDialogOpen.collectAsStateWithLifecycle()
     val isSyncingFirestore by viewModel.isSyncingFirestore.collectAsStateWithLifecycle()
     val syncStatusMessage by viewModel.syncStatusMessage.collectAsStateWithLifecycle()
+    val pendingSyncCount by viewModel.pendingSyncCount.collectAsStateWithLifecycle()
+    val cloudSyncState by viewModel.cloudSyncState.collectAsStateWithLifecycle()
 
     // Modals & Dialogs
     val viewingProduct by viewModel.viewingProduct.collectAsStateWithLifecycle()
@@ -122,6 +135,26 @@ fun ShowroomApp(viewModel: ShowroomViewModel) {
     val savedQuotations by viewModel.savedQuotations.collectAsStateWithLifecycle()
     val quotationCart by viewModel.quotationCart.collectAsStateWithLifecycle()
     val allCompanyProducts by viewModel.allCompanyProducts.collectAsStateWithLifecycle()
+
+    // ---------- Auth gate: login hone tak existing login screen ----------
+    var continueOffline by remember { mutableStateOf(false) }
+    if (viewModel.cloudConfigured && currentUser == null && !continueOffline) {
+        CloudLoginScreen(
+            userProfile = userProfile,
+            isSyncing = isSyncingFirestore,
+            syncStatusMessage = syncStatusMessage,
+            pendingCount = pendingSyncCount,
+            lastSyncAt = cloudSyncState?.lastSyncAt ?: 0L,
+            cloudConfigured = viewModel.cloudConfigured,
+            onGoogleSignIn = { activity: Activity -> viewModel.signInWithGoogle(activity) },
+            onEmailSignIn = { email, pass -> viewModel.signInWithEmail(email, pass) },
+            onEmailSignUp = { email, pass, name -> viewModel.signUpWithEmail(email, pass, name) },
+            onAnonymousSignIn = { viewModel.signInAnonymously() },
+            onPasswordReset = { email -> viewModel.sendPasswordReset(email) },
+            onContinueOffline = { continueOffline = true }
+        )
+        return
+    }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -303,7 +336,9 @@ fun ShowroomApp(viewModel: ShowroomViewModel) {
                     onAddCategory = { name, subcats -> viewModel.addCategory(name, subcats) },
                     onOpenAccountDialog = { viewModel.openAccountDialog() },
                     onNavigateToAi = { viewModel.setCurrentTab(3) },
-                    onOpenQuotation = { viewModel.openQuotationDialog() }
+                    onOpenQuotation = { viewModel.openQuotationDialog() },
+                    pendingSyncCount = pendingSyncCount,
+                    onSyncNow = { viewModel.syncNow() }
                 )
             }
         }
@@ -416,7 +451,12 @@ fun ShowroomApp(viewModel: ShowroomViewModel) {
             onAnonymousSignIn = { viewModel.signInAnonymously() },
             onSignOut = { viewModel.signOut() },
             onBackupToFirestore = { viewModel.backupToFirestore() },
-            onRestoreFromFirestore = { viewModel.restoreFromFirestore() }
+            onRestoreFromFirestore = { viewModel.restoreFromFirestore() },
+            pendingCount = pendingSyncCount,
+            lastSyncAt = cloudSyncState?.lastSyncAt ?: 0L,
+            cloudConfigured = viewModel.cloudConfigured,
+            onSyncNow = { viewModel.syncNow() },
+            onPasswordReset = { email -> viewModel.sendPasswordReset(email) }
         )
     }
 
@@ -447,6 +487,75 @@ fun ShowroomApp(viewModel: ShowroomViewModel) {
                     gstPercent = gst
                 )
             }
+        )
+    }
+}
+
+/**
+ * Login screen — existing [AccountSyncDialog] ko full-screen wrapper ke saath reuse karta hai
+ * (UI redesign nahi kiya gaya). Login hone par ye composable apne aap hat jata hai, kyunki
+ * MainActivity me `currentUser != null` ho jata hai.
+ */
+@Composable
+private fun CloudLoginScreen(
+    userProfile: ShowroomUserProfile?,
+    isSyncing: Boolean,
+    syncStatusMessage: String?,
+    pendingCount: Int,
+    lastSyncAt: Long,
+    cloudConfigured: Boolean,
+    onGoogleSignIn: (Activity) -> Unit,
+    onEmailSignIn: (String, String) -> Unit,
+    onEmailSignUp: (String, String, String) -> Unit,
+    onAnonymousSignIn: () -> Unit,
+    onPasswordReset: (String) -> Unit,
+    onContinueOffline: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier.padding(24.dp)
+        ) {
+            Text("🏪", fontSize = 46.sp)
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                "Showroom Manager",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.ExtraBold
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                "Sign in karein — catalog cloud me safe rahega aur doosre phone par bhi mil jayega",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        AccountSyncDialog(
+            currentUser = null,
+            userProfile = userProfile,
+            isSyncing = isSyncing,
+            syncStatusMessage = syncStatusMessage,
+            onDismiss = { /* login zaroori hai — bahar tap karne par band nahi hoga */ },
+            onGoogleSignIn = onGoogleSignIn,
+            onEmailSignIn = onEmailSignIn,
+            onEmailSignUp = onEmailSignUp,
+            onAnonymousSignIn = onAnonymousSignIn,
+            onSignOut = { },
+            onBackupToFirestore = { },
+            onRestoreFromFirestore = { },
+            pendingCount = pendingCount,
+            lastSyncAt = lastSyncAt,
+            cloudConfigured = cloudConfigured,
+            onSyncNow = { },
+            onPasswordReset = onPasswordReset,
+            onContinueOffline = onContinueOffline
         )
     }
 }

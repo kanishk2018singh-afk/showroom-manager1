@@ -1,0 +1,50 @@
+rules_version = '2';
+
+// Showroom Manager — Firestore security rules
+//
+// Har user sirf apne hi data (users/{uid}/...) ko padh/likh sakta hai.
+// Kabhi bhi `allow read, write: if true` jaisa public rule use na karein.
+//
+// Structure jo app use karti hai:
+//   users/{uid}                                  -> profile
+//   users/{uid}/companies/{docId}                -> companies
+//   users/{uid}/categories/{docId}               -> categories
+//   users/{uid}/products/{docId}                 -> products
+//   users/{uid}/quotations/{docId}               -> (reserved, aage bills/quotes ke liye)
+//
+// Deploy:
+//   firebase deploy --only firestore:rules
+// ya Firebase Console -> Firestore Database -> Rules me paste karke Publish karein.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Koi bhi request bina Firebase Auth ke nahi (email/Google/anononymous sabhi valid hain)
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Sirf apna hi data
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    match /users/{uid} {
+      allow read: if isOwner(uid);
+      allow create, update: if isOwner(uid);
+      allow delete: if false; // account document delete na ho (galti se poora data na ude)
+
+      match /{allSubcollections=**} {
+        allow read: if isOwner(uid);
+        // Naya doc banane ke liye uid hi owner hona chahiye
+        allow create, update: if isOwner(uid);
+        allow delete: if isOwner(uid);
+      }
+    }
+
+    // Baaki sab kuch default-deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

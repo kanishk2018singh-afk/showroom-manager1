@@ -89,6 +89,9 @@ fun ToolsScreen(
     onOpenAccountDialog: () -> Unit = {},
     onNavigateToAi: () -> Unit = {},
     onOpenQuotation: () -> Unit = {},
+    // --- Offline-first auto sync ---
+    pendingSyncCount: Int = 0,
+    onSyncNow: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -165,7 +168,9 @@ fun ToolsScreen(
                                 fontSize = 14.sp
                             )
                             Text(
-                                text = "Persist catalogue to Firestore & sync with Google Auth",
+                                text = if (pendingSyncCount > 0)
+                                    "⏳ $pendingSyncCount record upload pending (auto retry chal raha hai)"
+                                else "Persist catalogue to Firestore & sync with Google Auth",
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 lineHeight = 16.sp
@@ -173,11 +178,19 @@ fun ToolsScreen(
                         }
                     }
 
-                    Button(
-                        onClick = onOpenAccountDialog,
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                    ) {
-                        Text("Cloud Sync", fontSize = 11.sp)
+                    Column(horizontalAlignment = Alignment.End) {
+                        Button(
+                            onClick = onOpenAccountDialog,
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                        ) {
+                            Text("Cloud Sync", fontSize = 11.sp)
+                        }
+                        TextButton(
+                            onClick = onSyncNow,
+                            modifier = Modifier.testTag("tools_sync_now")
+                        ) {
+                            Text("Sync Now", fontSize = 11.sp)
+                        }
                     }
                 }
             }
