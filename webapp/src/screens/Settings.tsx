@@ -3,6 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db, DEFAULT_TERMS, seedDatabase } from '../lib/db'
 import { exportBackup, importBackup, wipeAllData } from '../lib/repo'
 import { download, readFileAsDataUrl, readFileAsText } from '../lib/format'
+import { runSelfTest, type SelfTestResult } from '../lib/selftest'
 import { ConfirmDialog, Segmented, Sheet, toast } from '../components/ui'
 import type { Business, DocSetting } from '../lib/types'
 import { DOC_TYPES, STATES } from '../lib/types'
@@ -26,6 +27,27 @@ export function SettingsScreen({
   const [docEdit, setDocEdit] = useState<DocSetting | null>(null)
   const logoRef = useRef<HTMLInputElement>(null)
   const [backupOpen, setBackupOpen] = useState(false)
+  const [testState, setTestState] = useState<'idle' | 'running' | 'done'>('idle')
+  const [testResults, setTestResults] = useState<SelfTestResult[]>([])
+
+  const runTest = async () => {
+    setTestState('running')
+    setTestResults([])
+    try {
+      const results = await runSelfTest()
+      setTestResults(results)
+      setTestState('done')
+      const failed = results.filter((r) => !r.ok).length
+      toast(
+        failed === 0 ? `Self-test pass — ${results.length}/${results.length} ✅` : `Self-test me ${failed} check fail ❌`,
+        failed === 0 ? 'success' : 'error',
+      )
+    } catch (e) {
+      setTestState('idle')
+      toast('Self-test chal nahi paya', 'error')
+      console.error(e)
+    }
+  }
 
   const docSettings = useLiveQuery(() => db.docSettings.toArray(), [], [] as DocSetting[])
   const items = useLiveQuery(() => db.items.count(), [], 0)
@@ -271,6 +293,27 @@ export function SettingsScreen({
       </div>
 
       <div className="card mt-3">
+        <div className="text-[13px] font-bold text-slate-700">🧪 App self-test</div>
+        <div className="mt-1 text-[11px] leading-relaxed text-slate-500">
+          Billing engine ka apna test — bill banana, GST, stock, payment, purchase, credit note, CSV, backup. Sab kuch
+          browser me hi chalta hai aur test ke baad aapka asli data waapas jaisa tha waisa hi rehta hai (rollback).
+        </div>
+        <button className="btn btn-primary btn-block mt-2" disabled={testState === 'running'} onClick={() => void runTest()}>
+          {testState === 'running' ? '⏳ Test chal raha hai…' : '🧪 Self-test chalayein'}
+        </button>
+        {testState === 'done' ? (
+          <div
+            className={`mt-2 rounded-xl px-3 py-2 text-center text-[12px] font-bold ${
+              testResults.some((r) => !r.ok) ? 'bg-due-soft text-due' : 'bg-money-soft text-money'
+            }`}
+          >
+            {testResults.filter((r) => r.ok).length}/{testResults.length} checks pass
+            {testResults.some((r) => !r.ok) ? ' — details dekhein' : ' ✅'}
+          </div>
+        ) : null}
+      </div>
+
+      <div className="card mt-3">
         <div className="text-[13px] font-bold text-slate-700">📱 App install karein</div>
         <div className="mt-1 text-[11px] text-slate-500">
           {installPrompt
@@ -291,6 +334,59 @@ export function SettingsScreen({
         <br />
         Aapka data aapke paas. 🤝
       </div>
+
+      <Sheet
+        open={testState === 'done'}
+        onClose={() => setTestState('idle')}
+        title="Self-test result"
+        subtitle={`${testResults.filter((r) => r.ok).length}/${testResults.length} checks pass`}
+        full
+        footer={
+          <button className="btn btn-primary btn-block" onClick={() => setTestState('idle')}>
+            Band karein
+          </button>
+        }
+      >
+        {(() => {
+          const groups = [...new Set(testResults.map((r) => r.group))]
+          const failed = testResults.filter((r) => !r.ok)
+          return (
+            <div className="flex flex-col gap-3">
+              <div
+                className={`rounded-2xl px-3 py-2.5 text-[13px] font-bold ${
+                  failed.length ? 'bg-due-soft text-due' : 'bg-money-soft text-money'
+                }`}
+              >
+                {failed.length
+                  ? `❌ ${failed.length} check fail — neeche dekhein`
+                  : `✅ Sab theek hai — ${testResults.length}/${testResults.length} checks pass`}
+              </div>
+              {groups.map((g) => (
+                <div key={g}>
+                  <div className="mb-1 text-[11px] font-bold uppercase tracking-wide text-slate-500">{g}</div>
+                  <div className="card-flat overflow-hidden">
+                    {testResults
+                      .filter((r) => r.group === g)
+                      .map((r, i) => (
+                        <div key={i} className="flex items-start gap-2 border-b border-slate-100 px-3 py-2 last:border-0">
+                          <span className="text-sm">{r.ok ? '✅' : '❌'}</span>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-[12px] font-semibold text-slate-800">{r.name}</div>
+                            {r.info ? <div className="truncate text-[10px] text-slate-500">{r.info}</div> : null}
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              ))}
+              <div className="text-[10px] leading-relaxed text-slate-400">
+                Ye test aapke data par chal raha tha par last me sab rollback ho gaya — koi item, bill ya payment add
+                nahi hua. Neeche wale counts Settings me waise hi rahenge.
+              </div>
+            </div>
+          )
+        })()}
+      </Sheet>
 
       <DocSettingSheet setting={docEdit} onClose={() => setDocEdit(null)} />
 

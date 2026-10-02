@@ -471,6 +471,32 @@ async function main() {
   check('purchase UI: saved bill shows PURCHASE BILL paper', html.includes('PURCHASE BILL'), undefined)
   check('purchase UI: shows payable wording', html.includes('Dena hai') || html.includes('Supplier ko payment'))
 
+  // in-app self test (Settings) — browser me hi chalta hai, rollback ke saath
+  const backFromBill = [...rootEl.querySelectorAll('button')].find((b) => b.textContent?.trim() === '←')
+  click(dom, backFromBill)
+  await wait(700)
+  const settingsBtn = [...rootEl.querySelectorAll('button')].find((b) => b.textContent?.trim() === '⚙️')
+  check('self-test: settings button mila', !!settingsBtn)
+  click(dom, settingsBtn)
+  await wait(900)
+  html = rootEl.innerHTML
+  check('self-test: settings me button dikha', html.includes('Self-test chalayein'))
+  const runTestBtn = [...rootEl.querySelectorAll('button')].find((b) => (b.textContent ?? '').includes('Self-test chalayein'))
+  click(dom, runTestBtn)
+  await wait(2500)
+  html = rootEl.innerHTML
+  const passMatch = html.match(/(\d+)\/(\d+) checks pass/)
+  check('self-test: chala aur pass hua', !!passMatch && passMatch[1] === passMatch[2], passMatch ? `${passMatch[1]}/${passMatch[2]}` : 'no result')
+  check('self-test: fail check nahi', !html.includes('check fail'))
+  await wait(300)
+  html = rootEl.innerHTML
+  check('self-test: result sheet khud khul gaya', html.includes('Bill maths') && html.includes('Data safety'))
+  check('self-test: har group ka result dikh raha', html.includes('Purchase') && html.includes('Expenses') && html.includes('Register'))
+  check('self-test: data rollback hua (counts same)', html.includes('rollback'))
+  const closeTest = [...rootEl.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Band karein')
+  click(dom, closeTest)
+  await wait(400)
+
   const appErrors = errors.filter((e) => String(e).includes('Error') || String(e).includes('Cannot'))
   check('react: no render errors', appErrors.length === 0, appErrors.slice(0, 2).map(String).join(' | '))
 

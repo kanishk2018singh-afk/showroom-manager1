@@ -110,29 +110,41 @@ GitHub Actions workflow `.github/workflows/deploy-webapp.yml` — `main` branch 
 
 Poore billing flow ka automated test hai (jsdom + fake IndexedDB) — isi se data layer aur UI dono check hote hain.
 
+**Sirf ek command** (repo root se — packages khud install ho jayenge):
+
 ```bash
-cd webapp          # zaroori (root se bhi chal sakta hai, neeche dekhein)
-npm install        # sirf pehli baar
 npm run smoke
 ```
 
-Repo root se bhi ek line me chalta hai (root script khud `webapp` me jaata hai):
+Ya `webapp` folder ke andar se:
 
 ```bash
-npm install --prefix webapp   # sirf pehli baar
-npm run smoke                 # root se
+cd webapp
+npm run smoke
 ```
 
-### ⚠️ Smoke test nahi chal raha? Ye 3 cheezein check karein
+Pehli baar chala rahe hain? Kuch aur nahi karna — script khud `npm install` kar leti hai (agar packages nahi mile)
+aur phir 79 checks chalati hai. Typecheck bhi saath chahiye to: `npm run verify`
+
+### ⚠️ Phir bhi nahi chala? Ye 3 cheezein check karein
 
 | Error | Wajah | Fix |
 | --- | --- | --- |
-| `sh: 1: esbuild: not found` ya `Cannot find package 'jsdom'` | `webapp/node_modules` nahi bana (npm install nahi chala, ya folder delete/move ho gaya) | `cd webapp && npm install` |
-| `Missing script: "smoke"` / `Could not read package.json` | command **repo root** se chala di, jahan package.json nahi tha | `npm run smoke` (root script) ya `cd webapp && npm run smoke` |
-| `Node ... is not supported` / koi syntax error | Node purana (20 se kam) | Node 22 install karein (nodejs.org) |
+| `npm: command not found` | Node.js install nahi hai | Node 22 install karein: https://nodejs.org (ya `winget install OpenJS.NodeJS` / `brew install node`) |
+| `npm ERR! network` / install fail | internet/proxy ya company firewall | mobile hotspot se try karein, ya `SMOKE_NO_INSTALL=1` ke saath manual `npm install` |
+| `Missing script: "smoke"` | aap purane commit/branch par hain (`main` branch me ye kaam abhi merge nahi hua) | `git fetch && git checkout arena/01a0fba1-showroom-manager1` — ya PR merge karke `main` pull karein |
+| `Node ... is not supported` | Node purana (20 se kam) | Node 22 install karein |
+
+**Terminal hi nahi chahiye?** App ke andar hi self-test hai: **Settings → 🧪 App self-test** (32 checks, browser me,
+bill banake, payment lekar, purchase karke — aur ant me sab rollback).
 
 GitHub par har push ke saath ye test apne aap (clean environment me) chalta hai —
 workflow: `.github/workflows/webapp-test.yml` → tab **Actions → Web App Smoke Test** me result dikhta hai.
+
+### 🧪 App ke andar wala self-test (bina terminal)
+**Settings → 🧪 App self-test** dabayein. Ye usi billing engine ko browser me chalata hai (32 checks:
+GST maths, bill number series, stock kam/zyada, payment, khata balance, purchase payable, credit note,
+CSV, backup, expenses, aging) aur **ant me sab kuch rollback** kar deta hai — aapka asli data bilkul safe.
 
 Ye **72 checks** chalata hai: invoice maths (GST/CGST/SGST/IGST, bill discount, round off), number series,
 stock cut/restore, payment recording, khata balance, credit note, **purchase bill (stock IN + payable)**,

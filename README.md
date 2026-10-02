@@ -17,13 +17,13 @@ Web app ke baare me poori jankari: [`webapp/README.md`](webapp/README.md)
 **Web app chalayein / test karein (repo root se):**
 
 ```bash
-npm install --prefix webapp   # sirf pehli baar
+npm install --prefix webapp   # sirf pehli baar (ya seedha npm run smoke — wo khud install kar leta hai)
 npm run dev                   # http://localhost:5173
-npm run smoke                 # 72 automated checks (data + UI)
+npm run smoke                 # 79 automated checks (data + UI) — ek hi command me
 ```
 
-> ⚠️ Agar `esbuild: not found` jaisa error aaye to samajh lein ki `webapp/node_modules` nahi bana —
-> `npm install --prefix webapp` chala lein. Details: [`webapp/README.md`](webapp/README.md#-testing-smoke-test)
+> 🧪 Terminal nahi chahiye? App ke andar **Settings → App self-test** hai (32 checks, browser me, aapka data safe).
+> Details + troubleshooting: [`webapp/README.md`](webapp/README.md#-testing-smoke-test)
 
 **Phone me install:** app ko Chrome me kholkar menu (⋮) → "Install app" / "Add to Home screen" — home screen par icon aa jayega aur bina internet bhi chalega. Data phone ke andar (IndexedDB) hi rehta hai.
 

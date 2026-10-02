@@ -10,7 +10,8 @@
     "preview": "vite preview --host 0.0.0.0",
     "typecheck": "tsc -b --noEmit false --emitDeclarationOnly false --pretty",
     "smoke": "node smoke/preflight.mjs && esbuild smoke/run.tsx --bundle --platform=node --format=esm --loader:.tsx=tsx --external:jsdom --outfile=smoke/.build/run.mjs --log-level=error && node smoke/.build/run.mjs",
-    "setup": "npm install"
+    "setup": "npm install",
+    "verify": "tsc -b --pretty false && npm run smoke"
   },
   "dependencies": {
     "dexie": "^4.2.0",
