@@ -70,10 +70,7 @@ jobs:
           APK=$(ls app/build/outputs/apk/debug/*.apk | head -1)
           echo "APK file: $APK"
           gh release delete apk-latest --yes --cleanup-tag 2>/dev/null || true
+          NOTES="Direct install: APK download karke phone me install karein (unknown sources allow karein). MyBillBook jaisa GST billing app: Tax Invoice, Estimate, Proforma, Delivery Challan, Bill of Supply, Credit Note, Purchase Bill, udhaar khata, Payments In/Out, Expenses, aging + day book reports, UPI QR, barcode billing, print (A4 + thermal 80mm), WhatsApp share. Pura app APK ke andar bundled hai - internet ke bina bhi chalta hai, data phone me hi rehta hai. Build #${{ github.run_number }}"
           gh release create apk-latest "$APK" \
             --title "Showroom Manager APK (latest build)" \
-            --notes "Direct install karein: phone me ye APK download karke 'Install anyway' (unknown sources) allow karein.
-
-**Isme kya hai:** MyBillBook jaisa GST billing app — Tax Invoice, Estimate, Proforma, Delivery Challan, Bill of Supply, Credit Note, Purchase Bill, udhaar khata, Payments In/Out, Expenses, aging + day book reports, UPI QR, barcode billing, print (A4 + thermal 80mm), WhatsApp share. Pura app APK ke andar bundled hai — **internet ke bina bhi chalta hai**, data phone me hi rehta hai.
-
-Build: ${{ github.run_number }} | Commit: ${{ github.sha }}"
+            --notes "$NOTES"
