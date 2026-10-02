@@ -2,14 +2,17 @@ name: Build Android APK
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main, master, arena/01a0fba1-showroom-manager1 ]
   pull_request:
     branches: [ main, master ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
-    name: Generate Release / Debug APK
+    name: Generate Debug APK
     runs-on: ubuntu-latest
 
     steps:
@@ -21,29 +24,56 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-          cache: gradle
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.8.0'
 
-      - name: Detect Directory and Build APK
+      - name: Build Debug APK
         run: |
-          PROJECT_DIR="."
-          if [ -d "showroom-manager/app" ]; then
-            PROJECT_DIR="showroom-manager"
-          fi
-          cd "$PROJECT_DIR"
-          echo "Building inside directory: $PWD"
-          
-          if [ ! -f "gradlew" ]; then
-            gradle wrapper
-          fi
-          chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace
+          set -o pipefail
+          gradle assembleDebug --stacktrace --warning-mode=summary 2>&1 | tee build.log
 
-      - name: Upload APK Artifact
+      - name: Build log summary (agar fail ho)
+        if: failure()
+        run: |
+          {
+            echo "## ❌ APK build fail hua"
+            echo ""
+            echo '```'
+            tail -c 12000 build.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload APK
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: Showroom-Manager-APK
-          path: "**/app/build/outputs/apk/debug/*.apk"
-          retention-days: 14
+          path: app/build/outputs/apk/debug/*.apk
+          retention-days: 30
+
+      - name: Upload build log (fail hone par)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
+          retention-days: 7
+
+      - name: Publish APK — public download link (release)
+        if: success() && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          APK=$(ls app/build/outputs/apk/debug/*.apk | head -1)
+          echo "APK file: $APK"
+          gh release delete apk-latest --yes --cleanup-tag 2>/dev/null || true
+          gh release create apk-latest "$APK" \
+            --title "Showroom Manager APK (latest build)" \
+            --notes "Direct install karein: phone me ye APK download karke 'Install anyway' (unknown sources) allow karein.
+
+**Isme kya hai:** MyBillBook jaisa GST billing app — Tax Invoice, Estimate, Proforma, Delivery Challan, Bill of Supply, Credit Note, Purchase Bill, udhaar khata, Payments In/Out, Expenses, aging + day book reports, UPI QR, barcode billing, print (A4 + thermal 80mm), WhatsApp share. Pura app APK ke andar bundled hai — **internet ke bina bhi chalta hai**, data phone me hi rehta hai.
+
+Build: ${{ github.run_number }} | Commit: ${{ github.sha }}"

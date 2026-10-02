@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Showroom Manager</string>
+    <string name="catalogue_app_name">Showroom Catalogue (AI)</string>
 </resources>

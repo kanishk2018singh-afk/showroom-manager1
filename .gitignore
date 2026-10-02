@@ -1,0 +1,15 @@
+# ---- Android / Gradle ----
+.gradle/
+build/
+local.properties
+*.iml
+.cxx/
+captures/
+.externalNativeBuild/
+
+# ---- Secrets (asli .env kabhi commit na karein; .env.example commit hota hai) ----
+.env
+
+# ---- OS / editor ----
+.DS_Store
+Thumbs.db
