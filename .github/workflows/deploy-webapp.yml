@@ -2,7 +2,7 @@ name: Deploy Web App (GitHub Pages)
 
 on:
   push:
-    branches: [main, master]
+    branches: [main, master, arena/01a0fba1-showroom-manager1]
   workflow_dispatch:
 
 permissions:
@@ -39,6 +39,8 @@ jobs:
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
+        with:
+          enablement: true
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
