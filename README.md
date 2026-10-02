@@ -4,6 +4,18 @@
 
 # Showroom Manager 🏪
 
+## 📱 Android APK — seedha download karein
+
+**⬇️ https://github.com/kanishk2018singh-afk/showroom-manager1/releases/download/apk-latest/app-debug.apk**
+
+Phone me: link kholein → APK download → **"Install anyway" / unknown sources allow** karein.
+
+Install ke baad **2 icon** milenge:
+- **Showroom Manager** → MyBillBook jaisa billing app (pura app APK ke andar bundled — internet ke bina bhi chalta hai; print, WhatsApp share, backup sab)
+- **Showroom Catalogue (AI)** → purani app (product catalogue + AI tools)
+
+Har push par APK khud ban kar isi link par update ho jata hai (workflow: `.github/workflows/build-apk.yml`).
+
 > ### 🌐 App browser me kholein
 >
 > **1) GitHub Pages (recommended, clean link):**
