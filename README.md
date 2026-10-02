@@ -4,6 +4,12 @@
 
 # Showroom Manager 🏪
 
+> ### 🌐 Live app (kisine bhi khol sakta hai)
+> **https://kanishk2018singh-afk.github.io/showroom-manager1/**
+>
+> Offline ek-file version: **https://kanishk2018singh-afk.github.io/showroom-manager1/showroom-manager-app.html**
+
+
 Do hisse hain is repo me:
 
 | Folder | Kya hai | Kaise chalayein |
