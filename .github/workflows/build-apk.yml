@@ -46,6 +46,22 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: APK signing key verify (stable key check)
+        if: success()
+        run: |
+          {
+            APK=$(ls app/build/outputs/apk/debug/*.apk | head -1)
+            echo "### APK signing certificate (SHA-256 ye har build me same rahna chahiye)"
+            echo '```'
+            APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner 2>/dev/null | tail -1)
+            if [ -n "$APKSIGNER" ]; then
+              "$APKSIGNER" verify --print-certs "$APK" | grep -iE "SHA-256|DN:" | head -4
+            else
+              keytool -printcert -jarfile "$APK" | grep -iE "Owner|SHA256" | head -4
+            fi
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
       - name: Upload APK
         if: success()
         uses: actions/upload-artifact@v4

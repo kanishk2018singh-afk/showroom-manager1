@@ -31,6 +31,18 @@ android {
       keyAlias = "upload"
       keyPassword = System.getenv("KEY_PASSWORD")
     }
+
+    // STABLE DEBUG KEY — repo me commit hai (showroom-debug.keystore).
+    // Har CI build isi key se sign hota hai, isliye naya APK purane ke UPAR seedha install ho jata hai
+    // ("App not installed as package conflicts with an existing package" error nahi aata).
+    // NOTE: Ye sirf testing/self-use ke liye hai — Play Store par upload karne ke liye release key banayein.
+    create("debugStable") {
+      storeFile = file("${rootDir}/showroom-debug.keystore")
+      storePassword = "android"
+      keyAlias = "showroom"
+      keyPassword = "android"
+      storeType = "PKCS12"
+    }
   }
 
   buildTypes {
@@ -40,7 +52,9 @@ android {
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
       signingConfig = signingConfigs.getByName("release")
     }
-    debug { }
+    debug {
+      signingConfig = signingConfigs.getByName("debugStable")
+    }
   }
   compileOptions {
     sourceCompatibility = JavaVersion.VERSION_11
