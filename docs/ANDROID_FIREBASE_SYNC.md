@@ -112,7 +112,22 @@ Naya data kabhi blindly overwrite nahi hota. Pending (`isSynced = false`) rows p
 
 `MIGRATION_2_3` safe hai — purana data delete nahi hota (fallback destructive migration sirf emergency ke liye hai).
 
-## 10. Ek device par doosra account (jaan lena zaroori)
+## 10. Signing keys aur Google Sign-In (SHA-1)
+
+Downloadable APK **stable debug key** se sign hota hai (`showroom-debug.keystore`, repo me committed):
+
+| Key | SHA-1 | SHA-256 |
+|---|---|---|
+| `showroom-debug.keystore` (CI/download APK) | `3F:F9:A2:D0:20:10:0D:EA:D4:D1:50:1D:D6:2E:B4:5D:EB:60:90:6F` | `90:9D:8A:B1:7D:0C:CF:DA:8B:C1:45:65:1D:51:F2:65:5A:F4:F5:FF:4C:45:DC:BC:F9:A8:27:CD:3D:27:97:41` |
+
+- **Google Sign-In** ke liye jo key se APK sign hua hai, uska SHA-1 Firebase Console me hona chahiye:
+  Project settings → aapka Android app → *Add fingerprint* → SHA-1 paste → Save → naya `google-services.json`
+  download karke `app/` me rakhein (aur repo me commit karein).
+- Agar aap **apne computer par** build karte hain (Android Studio / `gradlew.bat`), wahan aapki local debug key
+  lagti hai (jaise `f1efa837745366852627fce5070b74c6dad8beb1`) — uska SHA-1 bhi usi jagah add karein.
+- Email/password login in dono ke bina bhi chalta hai; SHA-1 sirf **Google** button ke liye chahiye.
+
+## 11. Ek device par doosra account (jaan lena zaroori)
 
 Sync merge natural keys par hota hai (product → `companyId + code`, party/company/category → naam). Agar ek hi device par
 **doosre account** se login karein, to local Room data us naye account ke cloud me bhi merge ho jayega (delete kuch nahi hota).

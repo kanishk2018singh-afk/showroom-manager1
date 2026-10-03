@@ -18,6 +18,22 @@ Install ke baad **2 icon** milenge:
 
 Har push par APK khud ban kar isi link par update ho jata hai (workflow: `.github/workflows/build-apk.yml`).
 
+### 🛠️ Apne computer par APK banana (optional)
+
+Gradle wrapper ab repo me included hai (`gradlew`, `gradlew.bat`, `gradle-wrapper.jar`):
+
+```bat
+:: Windows (repo folder me cmd/PowerShell)
+gradlew.bat assembleDebug
+```
+```bash
+# Mac / Linux
+./gradlew assembleDebug
+```
+
+APK yahan banega: **`app/build/outputs/apk/debug/app-debug.apk`**
+(Zarurat: JDK 17 — Android Studio install hai to already hota hai; pehli baar Gradle 9.8.0 khud download karega.)
+
 > **⚠️ "App not installed as package conflicts with an existing package" aaye to?**
 > Purane APK random debug key se sign hote the (har build ki key alag) — isliye phone ka purana
 > package naye APK ke saath match nahi karta. **Ek baar** purana app uninstall karein, phir naya APK install karein.
