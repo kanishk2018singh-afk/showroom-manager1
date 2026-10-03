@@ -6,11 +6,6 @@ on:
   pull_request:
     branches: [ main, master ]
   workflow_dispatch:
-    inputs:
-      generate_wrapper:
-        description: 'Gradle wrapper (gradlew + gradlew.bat + jar) generate karke commit karein?'
-        type: boolean
-        default: false
 
 permissions:
   contents: write
@@ -35,10 +30,15 @@ jobs:
         with:
           gradle-version: '9.8.0'
 
-      - name: Gradle wrapper generate + commit (one-time, dispatch se)
-        if: github.event_name == 'workflow_dispatch' && inputs.generate_wrapper == true
+      - name: Gradle wrapper ensure (missing ho to generate + commit)
+        if: github.event_name != 'pull_request' && github.ref_name == 'arena/01a0fba1-showroom-manager1'
+        continue-on-error: true
         run: |
           set -e
+          if [ -x ./gradlew ] && [ -f gradle/wrapper/gradle-wrapper.jar ]; then
+            echo "Gradle wrapper pehle se maujood hai — skip"
+            exit 0
+          fi
           gradle wrapper --gradle-version 9.8.0
           ls -la gradlew gradlew.bat gradle/wrapper/ || true
           git config user.name "github-actions[bot]"
