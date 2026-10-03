@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -13,9 +14,10 @@ import kotlinx.coroutines.launch
     entities = [
         Company::class,
         CategoryEntity::class,
-        Product::class
+        Product::class,
+        SyncQueueEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -23,6 +25,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun companyDao(): CompanyDao
     abstract fun categoryDao(): CategoryDao
     abstract fun productDao(): ProductDao
+    abstract fun syncQueueDao(): SyncQueueDao
 
     companion object {
         @Volatile
@@ -35,11 +38,38 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "showroom_manager_database"
                 )
+                .addMigrations(MIGRATION_2_3)
                 .fallbackToDestructiveMigration(true)
                 .addCallback(DatabaseCallback(scope))
                 .build()
                 INSTANCE = instance
                 instance
+            }
+        }
+
+        /**
+         * v2 -> v3: cloud sync metadata add hua (kuch delete nahi hota).
+         * Purane rows ka updatedAt = 0 rakha jata hai taaki "cloud newer" jaisa
+         * vyavhaar ho: agar cloud me docs hain to wo Room me aa jayenge, aur jo
+         * rows cloud me nahi hain wo upload ho jayengi.
+         */
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE products ADD COLUMN isSynced INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE companies ADD COLUMN updatedAt INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE companies ADD COLUMN isSynced INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE categories ADD COLUMN updatedAt INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE categories ADD COLUMN isSynced INTEGER NOT NULL DEFAULT 0")
+                db.execSQL(
+                    """CREATE TABLE IF NOT EXISTS sync_queue (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        collectionName TEXT NOT NULL,
+                        docId TEXT NOT NULL,
+                        operation TEXT NOT NULL,
+                        createdAt INTEGER NOT NULL,
+                        attempts INTEGER NOT NULL
+                    )"""
+                )
             }
         }
 

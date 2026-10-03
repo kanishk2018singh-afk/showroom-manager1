@@ -254,6 +254,7 @@ fun ProductsScreen(
                                 label = { Text(cat, fontSize = 12.sp) }
                             )
                         }
+                    }   // Category LazyRow band
                     Spacer(modifier = Modifier.height(6.dp))
 
                     // Stock Availability Filter Chips

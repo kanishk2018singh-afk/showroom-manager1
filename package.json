@@ -1,0 +1,17 @@
+{
+  "name": "showroom-manager",
+  "private": true,
+  "version": "2.0.0",
+  "description": "Showroom Manager — billing PWA (webapp/) + legacy Android app (app/)",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "setup": "npm --prefix webapp install",
+    "dev": "npm --prefix webapp run dev",
+    "build": "npm --prefix webapp run build",
+    "preview": "npm --prefix webapp run preview",
+    "smoke": "npm --prefix webapp run smoke",
+    "typecheck": "npm --prefix webapp exec tsc -b --pretty false"
+  }
+}

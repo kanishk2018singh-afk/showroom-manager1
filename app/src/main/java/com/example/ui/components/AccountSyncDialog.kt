@@ -69,7 +69,15 @@ fun AccountSyncDialog(
     onAnonymousSignIn: () -> Unit,
     onSignOut: () -> Unit,
     onBackupToFirestore: () -> Unit,
-    onRestoreFromFirestore: () -> Unit
+    onRestoreFromFirestore: () -> Unit,
+    // --- Offline-first auto sync (naya) ---
+    pendingCount: Int = 0,
+    lastSyncAt: Long = 0L,
+    cloudConfigured: Boolean = true,
+    onSyncNow: () -> Unit = {},
+    onPasswordReset: (String) -> Unit = {},
+    /** Login ke bina app use karne ka option (offline) */
+    onContinueOffline: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     var isSignUpMode by remember { mutableStateOf(false) }
@@ -146,7 +154,7 @@ fun AccountSyncDialog(
 
                             Column {
                                 Text(
-                                    text = currentUser.displayName ?: userProfile?.displayName ?: "Showroom Manager",
+                                    text = currentUser.displayName ?: userProfile?.displayName ?: "Showroom",
                                     fontWeight = FontWeight.Bold,
                                     style = MaterialTheme.typography.titleSmall
                                 )
@@ -210,6 +218,46 @@ fun AccountSyncDialog(
                         )
                     }
 
+                    // Auto sync status (offline-first)
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (pendingCount > 0) MaterialTheme.colorScheme.tertiaryContainer
+                            else MaterialTheme.colorScheme.secondaryContainer
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text(
+                                text = if (pendingCount > 0) "⏳ $pendingCount record upload pending hai" else "✅ Sab kuch sync hai",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Pichhli auto-sync: " + if (lastSyncAt > 0)
+                                    SimpleDateFormat("dd MMM, hh:mm a", Locale.getDefault()).format(Date(lastSyncAt))
+                                else "abhi tak nahi",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Button(
+                        onClick = onSyncNow,
+                        enabled = !isSyncing,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("sync_now_button")
+                    ) {
+                        Icon(Icons.Default.CloudSync, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(if (isSyncing) "Syncing…" else "Abhi sync karein (auto)")
+                    }
+
                     Spacer(modifier = Modifier.height(14.dp))
 
                     // Cloud Actions
@@ -259,6 +307,22 @@ fun AccountSyncDialog(
                     }
 
                 } else {
+                    if (!cloudConfigured) {
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = "⚠️ Firebase configured nahi hai. app/google-services.json daalein, " +
+                                    "phir login aur cloud sync chalu ho jayega. Tab tak app offline chalti rahegi.",
+                                fontSize = 11.sp,
+                                modifier = Modifier.padding(12.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(10.dp))
+                    }
+
                     // Unauthenticated Sign-In View
                     Text(
                         text = "Sign in to keep your catalog synced across devices and securely stored in Google Cloud Firestore.",
@@ -358,6 +422,12 @@ fun AccountSyncDialog(
                             Text(if (isSignUpMode) "Have an account? Sign In" else "New user? Create Account", fontSize = 11.sp)
                         }
 
+                        TextButton(
+                            onClick = { onPasswordReset(email) },
+                            modifier = Modifier.testTag("forgot_password_button")
+                        ) {
+                            Text("Password bhool gaye? Reset email bhejein", fontSize = 11.sp)
+                        }
                         TextButton(onClick = onAnonymousSignIn) {
                             Text("Guest Mode", fontSize = 11.sp, color = MaterialTheme.colorScheme.secondary)
                         }

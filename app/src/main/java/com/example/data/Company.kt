@@ -10,5 +10,9 @@ data class Company(
     val name: String,
     val description: String = "",
     val isDefault: Boolean = false,
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    /** Conflict resolution ke liye (cloud vs local) */
+    val updatedAt: Long = System.currentTimeMillis(),
+    /** Cloud sync: false = Firestore par upload pending hai */
+    val isSynced: Boolean = false
 )

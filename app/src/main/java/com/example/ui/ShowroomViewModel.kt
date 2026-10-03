@@ -9,6 +9,7 @@ import com.example.ai.ChatMessage
 import com.example.ai.GeminiClient
 import com.example.ai.GeminiRole
 import com.example.auth.FirebaseAuthManager
+import com.example.data.sync.SyncState
 import com.example.auth.ShowroomUserProfile
 import com.example.data.AppDatabase
 import com.example.data.CategoryEntity
@@ -26,11 +27,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 enum class StockFilter(val label: String, val hindiLabel: String) {
     ALL("All Stock", "सभी"),
@@ -65,11 +68,71 @@ class ShowroomViewModel(application: Application) : AndroidViewModel(application
         repository = ShowroomRepository(
             database.companyDao(),
             database.categoryDao(),
-            database.productDao()
+            database.productDao(),
+            syncQueueDao = database.syncQueueDao(),
+            appContext = application.applicationContext,
+            syncScope = viewModelScope
         )
         viewModelScope.launch(Dispatchers.IO) {
             repository.ensureDefaultDataPopulated()
         }
+
+        // Internet wapas aane par pending data apne aap upload ho jaye
+        registerNetworkRetry(application)
+
+        // Login session detection: Firebase khud session restore karta hai (cold start par async),
+        // isliye auth state ko reactively sunte hain — login/logout/restore sab yahin se handle hota hai.
+        viewModelScope.launch {
+            FirebaseAuthManager.authStateFlow
+                .catch { e -> android.util.Log.w("ShowroomViewModel", "authStateFlow error: ${e.message}") }
+                .collect { user -> onSessionChanged(user) }
+        }
+
+        // Sync state ko UI spinner ke saath jodo
+        viewModelScope.launch {
+            repository.syncState.collect { st -> if (st != null) _isSyncingFirestore.value = st.isSyncing }
+        }
+
+        // Har 2 minute me halka retry (sirf jab pending data ho)
+        viewModelScope.launch(Dispatchers.IO) {
+            while (true) {
+                kotlinx.coroutines.delay(120_000L)
+                if (FirebaseAuthManager.currentUser != null) {
+                    runCatching { repository.syncPending() }
+                }
+            }
+        }
+    }
+
+    private var networkCallback: android.net.ConnectivityManager.NetworkCallback? = null
+
+    private fun registerNetworkRetry(application: Application) {
+        try {
+            val cm = application.getSystemService(Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
+                ?: return
+            val callback = object : android.net.ConnectivityManager.NetworkCallback() {
+                override fun onAvailable(network: android.net.Network) {
+                    repository.requestCloudSync()
+                }
+            }
+            cm.registerDefaultNetworkCallback(callback)
+            networkCallback = callback
+        } catch (e: Exception) {
+            android.util.Log.w("ShowroomViewModel", "Network callback register nahi hua: ${e.message}")
+        }
+    }
+
+    override fun onCleared() {
+        try {
+            networkCallback?.let { cb ->
+                val cm = getApplication<Application>()
+                    .getSystemService(Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
+                cm?.unregisterNetworkCallback(cb)
+            }
+        } catch (e: Exception) {
+            android.util.Log.w("ShowroomViewModel", "Network callback unregister failed: ${e.message}")
+        }
+        super.onCleared()
     }
 
     // Navigation Tab: 0 = Home, 1 = Products, 2 = Companies, 3 = More
@@ -673,6 +736,13 @@ class ShowroomViewModel(application: Application) : AndroidViewModel(application
     private val _currentUser = MutableStateFlow<FirebaseUser?>(FirebaseAuthManager.currentUser)
     val currentUser: StateFlow<FirebaseUser?> = _currentUser.asStateFlow()
 
+    /** Firebase session check poora hua? (cold start par login screen ka flash rokta hai) */
+    private val _isAuthReady = MutableStateFlow(!FirebaseAuthManager.isConfigured)
+    val isAuthReady: StateFlow<Boolean> = _isAuthReady.asStateFlow()
+
+    /** Kis uid ka initial sync ho chuka hai (duplicate sync se bachne ke liye) */
+    private var lastSyncedUid: String? = null
+
     private val _userProfile = MutableStateFlow<ShowroomUserProfile?>(null)
     val userProfile: StateFlow<ShowroomUserProfile?> = _userProfile.asStateFlow()
 
@@ -684,6 +754,43 @@ class ShowroomViewModel(application: Application) : AndroidViewModel(application
 
     private val _syncStatusMessage = MutableStateFlow<String?>(null)
     val syncStatusMessage: StateFlow<String?> = _syncStatusMessage.asStateFlow()
+
+    // --- Cloud sync (offline-first Firestore synchronization) ---
+    val cloudConfigured: Boolean = FirebaseAuthManager.isConfigured
+
+    val pendingSyncCount: StateFlow<Int> = repository.pendingSyncCount.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = 0
+    )
+
+    val cloudSyncState: StateFlow<SyncState?> = repository.syncState.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = null
+    )
+
+    /** Manual sync — pending upload + cloud se merge */
+    fun syncNow() {
+        viewModelScope.launch {
+            _syncStatusMessage.value = "Cloud sync chal raha hai…"
+            val res = repository.syncNow()
+            _syncStatusMessage.value = res.message
+            _currentUser.value = FirebaseAuthManager.currentUser
+        }
+    }
+
+    /** Password reset email */
+    fun sendPasswordReset(email: String) {
+        viewModelScope.launch {
+            _syncStatusMessage.value = "Password reset email bhej rahe hain…"
+            val res = FirebaseAuthManager.sendPasswordReset(email)
+            _syncStatusMessage.value = res.fold(
+                onSuccess = { "Password reset email bhej diya 📧 (inbox check karein)" },
+                onFailure = { "Password reset fail: ${it.message}" }
+            )
+        }
+    }
 
     fun openAccountDialog() {
         _isAccountDialogOpen.value = true
@@ -746,10 +853,42 @@ class ShowroomViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    /**
+     * Auth state badalne par (login / logout / session restore).
+     * Naye user ke liye ek hi baar initial sync (pull -> merge -> upload) chalata hai.
+     */
+    private fun onSessionChanged(user: FirebaseUser?) {
+        _currentUser.value = user
+        _isAuthReady.value = true
+
+        if (user == null) {
+            lastSyncedUid = null
+            _userProfile.value = null
+            return
+        }
+        if (user.uid == lastSyncedUid) return // isi user ka sync chal chuka hai
+        lastSyncedUid = user.uid
+
+        _isSyncingFirestore.value = true
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val res = repository.syncNow()
+                withContext(Dispatchers.Main) {
+                    _syncStatusMessage.value = res.message
+                    _isSyncingFirestore.value = false
+                }
+            } catch (e: Exception) {
+                android.util.Log.w("ShowroomViewModel", "post-login sync failed: ${e.message}")
+                withContext(Dispatchers.Main) { _isSyncingFirestore.value = false }
+            }
+        }
+    }
+
     fun signOut() {
         FirebaseAuthManager.signOut()
         _currentUser.value = null
         _userProfile.value = null
+        lastSyncedUid = null
         _syncStatusMessage.value = "Signed out"
     }
 
@@ -768,7 +907,7 @@ class ShowroomViewModel(application: Application) : AndroidViewModel(application
                     lastSyncTime = System.currentTimeMillis()
                 ) ?: ShowroomUserProfile(
                     uid = user.uid,
-                    displayName = user.displayName ?: "Showroom Manager",
+                    displayName = user.displayName ?: "Showroom",
                     cloudProductCount = count,
                     lastSyncTime = System.currentTimeMillis()
                 )

@@ -59,4 +59,38 @@ interface ProductDao {
 
     @Query("SELECT DISTINCT category FROM products WHERE companyId = :companyId ORDER BY category ASC")
     fun getDistinctCategories(companyId: Long): Flow<List<String>>
+
+    // ---------- Cloud sync (Firestore) ke liye ----------
+
+    @Query("SELECT * FROM products")
+    suspend fun getAllProductsOnce(): List<Product>
+
+    @Query("SELECT * FROM products WHERE companyId = :companyId")
+    suspend fun getProductsByCompanyOnce(companyId: Long): List<Product>
+
+    @Query("SELECT * FROM products WHERE id = :id LIMIT 1")
+    suspend fun getProductByIdOnce(id: Long): Product?
+
+    /** Pending uploads (isSynced = 0) */
+    @Query("SELECT * FROM products WHERE isSynced = 0 LIMIT :limit")
+    suspend fun getUnsyncedProducts(limit: Int = 500): List<Product>
+
+    @Query("SELECT COUNT(*) FROM products WHERE isSynced = 0")
+    fun unsyncedCountFlow(): Flow<Int>
+
+    @Query("SELECT COUNT(*) FROM products WHERE isSynced = 0")
+    suspend fun unsyncedCount(): Int
+
+    @Query("UPDATE products SET isSynced = :synced WHERE id IN (:ids)")
+    suspend fun markSynced(ids: List<Long>, synced: Boolean = true)
+
+    @Query("UPDATE products SET isSynced = 0 WHERE id = :id")
+    suspend fun markUnsynced(id: Long)
+
+    @Query("UPDATE products SET isSynced = 0")
+    suspend fun markAllUnsynced()
+
+    /** Cloud se aaya row (upload ke liye pending nahi) */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertFromCloud(product: Product): Long
 }

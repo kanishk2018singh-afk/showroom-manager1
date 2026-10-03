@@ -2,48 +2,129 @@ name: Build Android APK
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main, master, arena/01a0fba1-showroom-manager1 ]
   pull_request:
     branches: [ main, master ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
-    name: Generate Release / Debug APK
+    name: Generate Debug APK
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Firebase config check (Google Sign-In ready?)
+        if: always()
+        run: |
+          {
+            echo "### Firebase config check"
+            echo '```'
+            python3 scripts/check-firebase-config.py || true
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
-          cache: gradle
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.8.0'
 
-      - name: Detect Directory and Build APK
+      - name: Gradle wrapper ensure (missing ho to generate + commit)
+        if: github.event_name != 'pull_request' && github.ref_name == 'arena/01a0fba1-showroom-manager1'
+        continue-on-error: true
         run: |
-          PROJECT_DIR="."
-          if [ -d "showroom-manager/app" ]; then
-            PROJECT_DIR="showroom-manager"
+          set -e
+          if [ -x ./gradlew ] && [ -f gradle/wrapper/gradle-wrapper.jar ]; then
+            echo "Gradle wrapper pehle se maujood hai — skip"
+            exit 0
           fi
-          cd "$PROJECT_DIR"
-          echo "Building inside directory: $PWD"
-          
-          if [ ! -f "gradlew" ]; then
-            gradle wrapper
+          gradle wrapper --gradle-version 9.8.0
+          ls -la gradlew gradlew.bat gradle/wrapper/ || true
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f gradlew gradlew.bat gradle/wrapper
+          if git diff --cached --quiet; then
+            echo "Wrapper pehle se maujood hai — kuch commit nahi"
+          else
+            git commit -m "chore: Gradle wrapper add — local build ke liye (gradlew.bat assembleDebug) [skip ci]"
+            git push
           fi
-          chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace
 
-      - name: Upload APK Artifact
+      - name: Build Debug APK
+        run: |
+          set -o pipefail
+          if [ -x ./gradlew ]; then
+            echo "Build method: Gradle wrapper (./gradlew)"
+            ./gradlew assembleDebug --stacktrace --warning-mode=summary 2>&1 | tee build.log
+          else
+            echo "Build method: system Gradle ($(gradle --version 2>/dev/null | grep -m1 'Gradle' || echo 'unknown'))"
+            gradle assembleDebug --stacktrace --warning-mode=summary 2>&1 | tee build.log
+          fi
+
+      - name: Build log summary (agar fail ho)
+        if: failure()
+        run: |
+          {
+            echo "## ❌ APK build fail hua"
+            echo ""
+            echo '```'
+            tail -c 12000 build.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: APK signing key verify (stable key check)
+        if: success()
+        run: |
+          {
+            APK=$(ls app/build/outputs/apk/debug/*.apk | head -1)
+            echo "### APK signing certificate (SHA-256 ye har build me same rahna chahiye)"
+            echo '```'
+            APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner 2>/dev/null | tail -1)
+            if [ -n "$APKSIGNER" ]; then
+              "$APKSIGNER" verify --print-certs "$APK" | grep -iE "SHA-256|DN:" | head -4
+            else
+              keytool -printcert -jarfile "$APK" | grep -iE "Owner|SHA256" | head -4
+            fi
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload APK
+        if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: Showroom-Manager-APK
-          path: "**/app/build/outputs/apk/debug/*.apk"
-          retention-days: 14
+          name: Showroom-APK
+          path: app/build/outputs/apk/debug/*.apk
+          retention-days: 30
+
+      - name: Upload build log (fail hone par)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
+          retention-days: 7
+
+      - name: Publish APK — public download link (release)
+        if: success() && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          APK=$(ls app/build/outputs/apk/debug/*.apk | head -1)
+          echo "APK file: $APK"
+          cp "$APK" Showroom.apk
+          gh release delete apk-latest --yes --cleanup-tag 2>/dev/null || true
+          NOTES="Direct install: APK download karke phone me install karein (unknown sources allow karein). MyBillBook jaisa GST billing app: Tax Invoice, Estimate, Proforma, Delivery Challan, Bill of Supply, Credit Note, Purchase Bill, udhaar khata, Payments In/Out, Expenses, aging + day book reports, UPI QR, barcode billing, print (A4 + thermal 80mm), WhatsApp share. Pura app APK ke andar bundled hai - internet ke bina bhi chalta hai, data phone me hi rehta hai. Build #${{ github.run_number }}"
+          gh release create apk-latest "$APK" Showroom.apk \
+            --title "Showroom APK (latest build)" \
+            --notes "$NOTES"
