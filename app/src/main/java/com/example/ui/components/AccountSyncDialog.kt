@@ -154,7 +154,7 @@ fun AccountSyncDialog(
 
                             Column {
                                 Text(
-                                    text = currentUser.displayName ?: userProfile?.displayName ?: "Showroom Manager",
+                                    text = currentUser.displayName ?: userProfile?.displayName ?: "Showroom",
                                     fontWeight = FontWeight.Bold,
                                     style = MaterialTheme.typography.titleSmall
                                 )

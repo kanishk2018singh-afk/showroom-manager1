@@ -28,7 +28,7 @@ data class ShowroomUserProfile(
     val email: String = "",
     val displayName: String = "",
     val photoUrl: String? = null,
-    val role: String = "Showroom Manager",
+    val role: String = "Owner",
     val activeCompanyName: String = "Hindware",
     val cloudProductCount: Int = 0,
     val lastSyncTime: Long = System.currentTimeMillis()
@@ -260,9 +260,9 @@ object FirebaseAuthManager {
             val data = hashMapOf<String, Any>(
                 "uid" to user.uid,
                 "email" to (user.email ?: "guest@showroom.local"),
-                "displayName" to (customName ?: user.displayName ?: "Showroom Manager"),
+                "displayName" to (customName ?: user.displayName ?: "Showroom"),
                 "photoUrl" to (user.photoUrl?.toString() ?: ""),
-                "role" to if (user.isAnonymous) "Guest Evaluator" else "Showroom Manager",
+                "role" to if (user.isAnonymous) "Guest Evaluator" else "Owner",
                 "lastSyncTime" to System.currentTimeMillis()
             )
             if (activeCompany != null) {

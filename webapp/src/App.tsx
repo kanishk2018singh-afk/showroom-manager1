@@ -163,7 +163,7 @@ export default function App() {
   if (!business || onboarded === null) {
     return (
       <div className="app-shell items-center justify-center">
-        <div className="mt-24 text-center text-sm text-slate-500">Showroom Manager load ho raha hai…</div>
+        <div className="mt-24 text-center text-sm text-slate-500">Showroom load ho raha hai…</div>
       </div>
     )
   }

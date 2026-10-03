@@ -100,7 +100,7 @@ export function LoginScreen({ onLoggedIn }: { onLoggedIn: () => void }) {
           <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-br from-indigo-600 to-indigo-900 text-3xl text-white shadow-lg">
             🏪
           </div>
-          <div className="mt-3 text-lg font-extrabold text-slate-900">Showroom Manager</div>
+          <div className="mt-3 text-lg font-extrabold text-slate-900">Showroom</div>
           <button
             className="mt-1 inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-[12px] font-semibold text-slate-700"
             onClick={() => setCompanySheet(true)}

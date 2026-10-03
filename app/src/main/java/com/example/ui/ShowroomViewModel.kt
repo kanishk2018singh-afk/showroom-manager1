@@ -907,7 +907,7 @@ class ShowroomViewModel(application: Application) : AndroidViewModel(application
                     lastSyncTime = System.currentTimeMillis()
                 ) ?: ShowroomUserProfile(
                     uid = user.uid,
-                    displayName = user.displayName ?: "Showroom Manager",
+                    displayName = user.displayName ?: "Showroom",
                     cloudProductCount = count,
                     lastSyncTime = System.currentTimeMillis()
                 )

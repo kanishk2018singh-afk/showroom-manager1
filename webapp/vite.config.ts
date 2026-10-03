@@ -26,7 +26,7 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icon-192.png', 'icon-512.png', 'apple-touch-icon.png'],
       manifest: {
-        name: 'Showroom Manager — GST Billing & Inventory',
+        name: 'Showroom — GST Billing & Inventory',
         short_name: 'Showroom',
         description:
           'GST billing, estimate, invoice, barcode billing, stock & reports — offline showroom billing app.',

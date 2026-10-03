@@ -549,7 +549,7 @@ private fun CloudLoginScreen(
             Text("🏪", fontSize = 46.sp)
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                "Showroom Manager",
+                "Showroom",
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.ExtraBold
             )

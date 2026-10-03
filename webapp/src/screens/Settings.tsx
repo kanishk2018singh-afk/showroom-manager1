@@ -336,7 +336,7 @@ export function SettingsScreen({
       </div>
 
       <div className="mt-4 text-center text-[10px] leading-relaxed text-slate-400">
-        Showroom Manager — Billing Edition v2.0
+        Showroom — Billing Edition v2.0
         <br />
         Offline GST billing, estimate, challan, credit note, barcode billing & reports.
         <br />

@@ -28,7 +28,7 @@ export function Onboarding({ business, onDone }: { business: Business; onDone: (
       <div className="mx-auto w-full max-w-[460px]">
         <div className="text-center">
           <div className="mx-auto grid h-16 w-16 place-items-center rounded-3xl bg-white/10 text-3xl shadow-lg">🏪</div>
-          <h1 className="mt-3 text-2xl font-extrabold">Showroom Manager</h1>
+          <h1 className="mt-3 text-2xl font-extrabold">Showroom</h1>
           <p className="mt-1 text-[12px] text-brand-100">
             GST billing • Estimate • Barcode billing • Stock • Reports — sab offline
           </p>

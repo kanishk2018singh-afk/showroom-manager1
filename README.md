@@ -2,16 +2,18 @@
 <img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
 </div>
 
-# Showroom Manager 🏪
+# Showroom 🏪
 
 ## 📱 Android APK — seedha download karein
 
-**⬇️ https://github.com/kanishk2018singh-afk/showroom-manager1/releases/download/apk-latest/app-debug.apk**
+**⬇️ https://github.com/kanishk2018singh-afk/showroom-manager1/releases/download/apk-latest/Showroom.apk**
+
+(purana link bhi chalta rahega: `…/apk-latest/app-debug.apk` — dono ek hi APK hain)
 
 Phone me: link kholein → APK download → **"Install anyway" / unknown sources allow** karein.
 
 Install ke baad **2 icon** milenge:
-- **Showroom Manager** → MyBillBook jaisa billing app (pura app APK ke andar bundled — internet ke bina bhi chalta hai; print, WhatsApp share, backup sab)
+- **Showroom** → MyBillBook jaisa billing app (pura app APK ke andar bundled — internet ke bina bhi chalta hai; print, WhatsApp share, backup sab)
 - **Showroom Catalogue (AI)** → purani app (product catalogue + AI tools)
 
 Har push par APK khud ban kar isi link par update ho jata hai (workflow: `.github/workflows/build-apk.yml`).
