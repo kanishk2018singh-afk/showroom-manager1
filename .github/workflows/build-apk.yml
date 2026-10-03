@@ -19,6 +19,16 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Firebase config check (Google Sign-In ready?)
+        if: always()
+        run: |
+          {
+            echo "### Firebase config check"
+            echo '```'
+            python3 scripts/check-firebase-config.py || true
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
