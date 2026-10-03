@@ -18,6 +18,14 @@ Install ke baad **2 icon** milenge:
 
 Har push par APK khud ban kar isi link par update ho jata hai (workflow: `.github/workflows/build-apk.yml`).
 
+> **⚠️ "App not installed as package conflicts with an existing package" aaye to?**
+> Purane APK random debug key se sign hote the (har build ki key alag) — isliye phone ka purana
+> package naye APK ke saath match nahi karta. **Ek baar** purana app uninstall karein, phir naya APK install karein.
+> (Pehle app me data ho to app ke andar Settings → Backup/Export se JSON backup le lein — uninstall se app ka local data hat jata hai.)
+> Ab se aisa nahi hoga: repo me **stable debug key** (`showroom-debug.keystore`) commit hai, isliye har naya APK
+> purane ke **upar seedha install** hota hai. Key fingerprint (har build me same):
+> `SHA-256 90:9D:8A:B1:7D:0C:CF:DA:8B:C1:45:65:1D:51:F2:65:5A:F4:F5:FF:4C:45:DC:BC:F9:A8:27:CD:3D:27:97:41`
+
 > ### 🌐 App browser me kholein
 >
 > **1) GitHub Pages (recommended, clean link):**
