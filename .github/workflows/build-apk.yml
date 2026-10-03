@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [ main, master ]
   workflow_dispatch:
+    inputs:
+      generate_wrapper:
+        description: 'Gradle wrapper (gradlew + gradlew.bat + jar) generate karke commit karein?'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -30,10 +35,32 @@ jobs:
         with:
           gradle-version: '9.8.0'
 
+      - name: Gradle wrapper generate + commit (one-time, dispatch se)
+        if: github.event_name == 'workflow_dispatch' && inputs.generate_wrapper == true
+        run: |
+          set -e
+          gradle wrapper --gradle-version 9.8.0
+          ls -la gradlew gradlew.bat gradle/wrapper/ || true
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f gradlew gradlew.bat gradle/wrapper
+          if git diff --cached --quiet; then
+            echo "Wrapper pehle se maujood hai — kuch commit nahi"
+          else
+            git commit -m "chore: Gradle wrapper add — local build ke liye (gradlew.bat assembleDebug) [skip ci]"
+            git push
+          fi
+
       - name: Build Debug APK
         run: |
           set -o pipefail
-          gradle assembleDebug --stacktrace --warning-mode=summary 2>&1 | tee build.log
+          if [ -x ./gradlew ]; then
+            echo "Build method: Gradle wrapper (./gradlew)"
+            ./gradlew assembleDebug --stacktrace --warning-mode=summary 2>&1 | tee build.log
+          else
+            echo "Build method: system Gradle ($(gradle --version 2>/dev/null | grep -m1 'Gradle' || echo 'unknown'))"
+            gradle assembleDebug --stacktrace --warning-mode=summary 2>&1 | tee build.log
+          fi
 
       - name: Build log summary (agar fail ho)
         if: failure()
